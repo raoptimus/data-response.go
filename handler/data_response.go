@@ -21,7 +21,6 @@ func DataResponse(h response.Handler, f response.Factory) http.Handler {
 			log.Println(err)
 
 			if err := f.GetFormatWriter().Write(f.CreateInternalServerErrorResponse(err).GetData(), w); err != nil {
-				log.Println(err)
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			}
 		}

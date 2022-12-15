@@ -19,8 +19,8 @@ func (f *factory) GetFormatWriter() FormatWriter {
 	return f.fw
 }
 
-func (f *factory) CreateResponse(data any, code int) *DataResponse {
-	return NewDataResponse(data, code)
+func (f *factory) CreateResponse(data any, statusCode int) *DataResponse {
+	return NewDataResponse(data, statusCode)
 }
 
 func (f *factory) CreateInternalServerErrorResponse(err error) *DataResponse {

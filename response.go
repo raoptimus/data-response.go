@@ -1,13 +1,11 @@
 package response
 
 import (
-	"context"
 	"net/http"
 )
 
 type (
 	DataResponse struct {
-		ctx        context.Context
 		data       any
 		statusCode int
 		header     http.Header

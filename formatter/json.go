@@ -10,7 +10,10 @@ type Json struct {
 }
 
 func NewJson() *Json {
-	return &Json{}
+	return &Json{pretty: false}
+}
+func NewJsonPretty() *Json {
+	return &Json{pretty: true}
 }
 
 func (j *Json) Write(data any, w http.ResponseWriter) error {
