@@ -14,7 +14,9 @@ func NewHtml() *Html {
 	return &Html{}
 }
 
-func (h *Html) Write(data any, w http.ResponseWriter) error {
+func (h *Html) Write(w http.ResponseWriter, statusCode int, data any) error {
+	w.WriteHeader(statusCode)
+
 	if s, ok := data.(string); ok {
 		_, err := io.WriteString(w, s)
 		return err

@@ -16,8 +16,9 @@ func NewJsonPretty() *Json {
 	return &Json{pretty: true}
 }
 
-func (j *Json) Write(data any, w http.ResponseWriter) error {
+func (j *Json) Write(w http.ResponseWriter, statusCode int, data any) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
 
 	enc := json.NewEncoder(w)
 	if j.pretty {

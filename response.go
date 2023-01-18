@@ -12,7 +12,7 @@ type (
 	}
 )
 
-func NewDataResponse(data any, code int) *DataResponse {
+func NewDataResponse(code int, data any) *DataResponse {
 	return &DataResponse{
 		data:       data,
 		statusCode: code,
@@ -24,23 +24,19 @@ func (d *DataResponse) Header() http.Header {
 	return d.header
 }
 
-func (d *DataResponse) GetData() any {
+func (d *DataResponse) Data() any {
 	return d.data
 }
 
-func (d *DataResponse) GetStatusCode() int {
+func (d *DataResponse) StatusCode() int {
 	return d.statusCode
 }
 
-func (d *DataResponse) GetHeader() http.Header {
-	return d.header
-}
-
-func (d *DataResponse) GetHeaderValues(key string) []string {
+func (d *DataResponse) HeaderValues(key string) []string {
 	return d.header.Values(key)
 }
 
-func (d *DataResponse) GetHeaderLine(key string) string {
+func (d *DataResponse) HeaderLine(key string) string {
 	return d.header.Get(key)
 }
 
