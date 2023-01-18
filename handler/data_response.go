@@ -6,8 +6,8 @@ import (
 	response "github.com/raoptimus/data-response.go"
 )
 
-// NewHTTPHandlerFunc - оборачивает http вызов в response.Handler и возвращает http.HandlerFunc.
-func NewHTTPHandlerFunc(f response.Factory, h response.Handler) http.HandlerFunc {
+// DataResponseFunc - оборачивает http вызов в response.Handler и возвращает http.HandlerFunc.
+func DataResponseFunc(f response.Factory, h response.Handler) http.HandlerFunc {
 	writer := f.FormatWriter()
 	return func(w http.ResponseWriter, req *http.Request) {
 		resp := h.Handle(f, req)
@@ -32,9 +32,9 @@ func NewHTTPHandlerFunc(f response.Factory, h response.Handler) http.HandlerFunc
 	}
 }
 
-// NewHTTPHandler - оборачивает http вызов в response.Handler и возвращает http.Handler.
-func NewHTTPHandler(f response.Factory, h response.Handler) http.Handler {
-	return NewHTTPHandlerFunc(f, h)
+// DataResponse - оборачивает http вызов в response.Handler и возвращает http.Handler.
+func DataResponse(f response.Factory, h response.Handler) http.Handler {
+	return DataResponseFunc(f, h)
 }
 
 // Func - адаптер, позволяющий использовать обычные функции как обработчики HTTP.

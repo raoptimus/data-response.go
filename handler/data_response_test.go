@@ -22,7 +22,7 @@ func (s *testHandler) Handle(f response.FactoryAPI, r *http.Request) *response.D
 
 func TestHandle_GetStdRequest_ReturnsResponseSuccessfully(t *testing.T) {
 	f := response.NewDummyFactory(formatter.NewJsonPretty(), false)
-	h := NewHTTPHandlerFunc(f, &testHandler{})
+	h := DataResponseFunc(f, &testHandler{})
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
