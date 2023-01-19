@@ -7,21 +7,22 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	response "github.com/raoptimus/data-response.go"
 	"github.com/stretchr/testify/assert"
+
+	response "github.com/raoptimus/data-response.go"
 
 	"github.com/raoptimus/data-response.go/formatter"
 )
 
 type testHandler struct{}
 
-func (s *testHandler) Handle(f response.Factory, r *http.Request) *response.DataResponse {
-	return f.CreateResponse(r.Method, 200)
+func (s *testHandler) Handle(f response.FactoryAPI, r *http.Request) *response.DataResponse {
+	return f.CreateResponse(r.Context(), 200, r.Method)
 }
 
 func TestHandle_GetStdRequest_ReturnsResponseSuccessfully(t *testing.T) {
-	f := response.NewFactory(formatter.NewJsonPretty(), false)
-	h := DataResponse(&testHandler{}, f)
+	f := response.NewDummyFactory(formatter.NewJsonPretty(), false)
+	h := DataResponseFunc(f, &testHandler{})
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 

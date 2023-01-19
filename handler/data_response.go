@@ -1,28 +1,54 @@
 package handler
 
 import (
-	"log"
 	"net/http"
 
 	response "github.com/raoptimus/data-response.go"
 )
 
-func DataResponse(h response.Handler, f response.Factory) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+// DataResponseAPIFunc - оборачивает http вызов в response.Handler и возвращает http.HandlerFunc.
+func DataResponseAPIFunc(f response.FactoryWithFormatWriter, h response.HandlerAPI) http.HandlerFunc {
+	writer := f.FormatWriter()
+	return func(w http.ResponseWriter, req *http.Request) {
 		resp := h.Handle(f, req)
 
+		header := w.Header()
 		for key, values := range resp.Header() {
-			for _, value := range values {
-				w.Header().Add(key, value)
+			for i := range values {
+				header.Add(key, values[i])
 			}
 		}
 
-		if err := f.GetFormatWriter().Write(resp.GetData(), w); err != nil {
-			log.Println(err)
-
-			if err := f.GetFormatWriter().Write(f.CreateInternalServerErrorResponse(err).GetData(), w); err != nil {
+		if err := writer.Write(w, resp.StatusCode(), resp.Data()); err != nil {
+			internalResp := f.CreateInternalServerErrorResponse(req.Context(), err)
+			if err := writer.Write(w, resp.StatusCode(), internalResp.Data()); err != nil {
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
 			}
+
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
 		}
-	})
+	}
+}
+
+// DataResponseAPI - оборачивает http вызов в response.HandlerAPI и возвращает http.Handler.
+func DataResponseAPI(f response.FactoryWithFormatWriter, h response.HandlerAPI) http.Handler {
+	return DataResponseAPIFunc(f, h)
+}
+
+// Func - адаптер, позволяющий использовать обычные функции как обработчики HTTP.
+type Func func(f response.Factory, r *http.Request) *response.DataResponse
+
+// Handle - вызывает f(factory, r).
+func (f Func) Handle(factory response.Factory, r *http.Request) *response.DataResponse {
+	return f(factory, r)
+}
+
+// FuncAPI - адаптер, позволяющий использовать обычные функции как обработчики HTTP.
+type FuncAPI func(f response.FactoryAPI, r *http.Request) *response.DataResponse
+
+// Handle - вызывает f(factory, r).
+func (f FuncAPI) Handle(factory response.FactoryAPI, r *http.Request) *response.DataResponse {
+	return f(factory, r)
 }
