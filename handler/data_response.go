@@ -20,7 +20,7 @@ func DataResponseAPIFunc(f response.FactoryWithFormatWriter, h response.HandlerA
 		}
 
 		if err := writer.Write(w, resp.StatusCode(), resp.Data()); err != nil {
-			internalResp := f.CreateInternalServerErrorResponse(req.Context(), err)
+			internalResp := f.InternalServerErrorResponse(req.Context(), err)
 			if err := writer.Write(w, resp.StatusCode(), internalResp.Data()); err != nil {
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return

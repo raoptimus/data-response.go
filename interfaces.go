@@ -16,17 +16,17 @@ type FactoryWithFormatWriter interface {
 }
 
 type Factory interface {
-	CreateResponse(ctx context.Context, statusCode int, data any) *DataResponse
-	CreateInternalServerErrorResponse(ctx context.Context, err error) *DataResponse
+	Response(ctx context.Context, statusCode int, data any) *DataResponse
+	InternalServerErrorResponse(ctx context.Context, err error) *DataResponse
 }
 
 type FactoryAPI interface {
-	CreateResponse(ctx context.Context, statusCode int, data any) *DataResponse
-	CreateSuccessResponse(ctx context.Context, data any) *DataResponse
-	CreateInternalServerErrorResponse(ctx context.Context, err error) *DataResponse
-	CreateUnprocessableEntityResponse(ctx context.Context, message string, attributesErrors map[string][]string) *DataResponse
-	CreateNotFoundEntityResponse(ctx context.Context, message string) *DataResponse
-	CreateErrorResponse(ctx context.Context, statusCode int, message string) *DataResponse
+	Response(ctx context.Context, statusCode int, data any) *DataResponse
+	SuccessResponse(ctx context.Context, data any) *DataResponse
+	InternalServerErrorResponse(ctx context.Context, err error) *DataResponse
+	UnprocessableEntityResponse(ctx context.Context, message string, attributesErrors map[string][]string) *DataResponse
+	NotFoundEntityResponse(ctx context.Context, message string) *DataResponse
+	ErrorResponse(ctx context.Context, statusCode int, message string) *DataResponse
 }
 
 type Handler interface {
