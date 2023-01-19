@@ -22,6 +22,10 @@ func (f *DummyFactory) CreateResponse(_ context.Context, statusCode int, data an
 	return NewDataResponse(statusCode, data)
 }
 
+func (f *DummyFactory) CreateSuccessResponse(ctx context.Context, data any) *DataResponse {
+	return f.CreateResponse(ctx, http.StatusOK, data)
+}
+
 func (f *DummyFactory) CreateInternalServerErrorResponse(ctx context.Context, err error) *DataResponse {
 	var message string
 	if f.verbosity {
