@@ -18,15 +18,15 @@ func (f *DummyFactory) FormatWriter() FormatWriter {
 	return f.fw
 }
 
-func (f *DummyFactory) CreateResponse(_ context.Context, statusCode int, data any) *DataResponse {
+func (f *DummyFactory) Response(_ context.Context, statusCode int, data any) *DataResponse {
 	return NewDataResponse(statusCode, data)
 }
 
-func (f *DummyFactory) CreateSuccessResponse(ctx context.Context, data any) *DataResponse {
-	return f.CreateResponse(ctx, http.StatusOK, data)
+func (f *DummyFactory) SuccessResponse(ctx context.Context, data any) *DataResponse {
+	return f.Response(ctx, http.StatusOK, data)
 }
 
-func (f *DummyFactory) CreateInternalServerErrorResponse(ctx context.Context, err error) *DataResponse {
+func (f *DummyFactory) InternalServerErrorResponse(ctx context.Context, err error) *DataResponse {
 	var message string
 	if f.verbosity {
 		message = err.Error()
@@ -34,22 +34,22 @@ func (f *DummyFactory) CreateInternalServerErrorResponse(ctx context.Context, er
 		message = http.StatusText(http.StatusInternalServerError)
 	}
 
-	return f.CreateResponse(ctx, http.StatusInternalServerError, message)
+	return f.Response(ctx, http.StatusInternalServerError, message)
 }
 
-func (f *DummyFactory) CreateUnprocessableEntityResponse(
+func (f *DummyFactory) UnprocessableEntityResponse(
 	ctx context.Context,
 	message string,
 	attributesErrors map[string][]string,
 ) *DataResponse {
 	// TODO: convert attributes to string
-	return f.CreateResponse(ctx, http.StatusUnprocessableEntity, message)
+	return f.Response(ctx, http.StatusUnprocessableEntity, message)
 }
 
-func (f *DummyFactory) CreateNotFoundEntityResponse(ctx context.Context, message string) *DataResponse {
-	return f.CreateResponse(ctx, http.StatusOK, "NotFound: "+message)
+func (f *DummyFactory) NotFoundEntityResponse(ctx context.Context, message string) *DataResponse {
+	return f.Response(ctx, http.StatusOK, "NotFound: "+message)
 }
 
-func (f *DummyFactory) CreateErrorResponse(ctx context.Context, statusCode int, message string) *DataResponse {
-	return f.CreateResponse(ctx, statusCode, message)
+func (f *DummyFactory) ErrorResponse(ctx context.Context, statusCode int, message string) *DataResponse {
+	return f.Response(ctx, statusCode, message)
 }

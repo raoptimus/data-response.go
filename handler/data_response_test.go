@@ -17,12 +17,12 @@ import (
 type testHandler struct{}
 
 func (s *testHandler) Handle(f response.FactoryAPI, r *http.Request) *response.DataResponse {
-	return f.CreateResponse(r.Context(), 200, r.Method)
+	return f.Response(r.Context(), 200, r.Method)
 }
 
 func TestHandle_GetStdRequest_ReturnsResponseSuccessfully(t *testing.T) {
 	f := response.NewDummyFactory(formatter.NewJsonPretty(), false)
-	h := DataResponseFunc(f, &testHandler{})
+	h := DataResponseAPIFunc(f, &testHandler{})
 	srv := httptest.NewServer(h)
 	defer srv.Close()
 
