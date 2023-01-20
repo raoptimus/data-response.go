@@ -51,3 +51,9 @@ func Measurement(next http.Handler, m MetricsService) http.Handler {
 		})
 	})
 }
+
+func MeasurementN(m MetricsService) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return Measurement(next, m)
+	}
+}
