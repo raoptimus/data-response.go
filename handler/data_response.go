@@ -32,9 +32,40 @@ func DataResponseAPIFunc(f response.FactoryWithFormatWriter, h response.HandlerA
 	}
 }
 
+// DataResponseWithFormatWriterFunc - оборачивает http вызов в response.Handler и возвращает http.HandlerFunc.
+func DataResponseWithFormatWriterFunc(f response.FactoryWithFormatWriter, h response.HandlerWithFormatWriter) http.HandlerFunc {
+	writer := f.FormatWriter()
+	return func(w http.ResponseWriter, req *http.Request) {
+		resp := h.Handle(f, req)
+
+		header := w.Header()
+		for key, values := range resp.Header() {
+			for i := range values {
+				header.Add(key, values[i])
+			}
+		}
+
+		if err := writer.Write(w, resp.StatusCode(), resp.Data()); err != nil {
+			internalResp := f.InternalServerErrorResponse(req.Context(), err)
+			if err := writer.Write(w, resp.StatusCode(), internalResp.Data()); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
 // DataResponseAPI - оборачивает http вызов в response.HandlerAPI и возвращает http.Handler.
 func DataResponseAPI(f response.FactoryWithFormatWriter, h response.HandlerAPI) http.Handler {
 	return DataResponseAPIFunc(f, h)
+}
+
+// DataResponseWithFormatWriter - оборачивает http вызов в response.HandlerAPI и возвращает http.Handler.
+func DataResponseWithFormatWriter(f response.FactoryWithFormatWriter, h response.HandlerWithFormatWriter) http.Handler {
+	return DataResponseWithFormatWriterFunc(f, h)
 }
 
 // Func - адаптер, позволяющий использовать обычные функции как обработчики HTTP.

@@ -36,3 +36,7 @@ type Handler interface {
 type HandlerAPI interface {
 	Handle(f FactoryAPI, r *http.Request) *DataResponse
 }
+
+type HandlerWithFormatWriter interface {
+	Handle(f FactoryWithFormatWriter, r *http.Request) *DataResponse
+}

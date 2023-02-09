@@ -5,6 +5,10 @@ import (
 	"net/http"
 )
 
+const (
+	contentTypeJson = "application/json"
+)
+
 type Json struct {
 	pretty bool
 }
@@ -17,7 +21,7 @@ func NewJsonPretty() *Json {
 }
 
 func (j *Json) Write(w http.ResponseWriter, statusCode int, data any) error {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", contentTypeJson)
 	w.WriteHeader(statusCode)
 
 	enc := json.NewEncoder(w)
