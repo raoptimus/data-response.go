@@ -2,13 +2,14 @@ package middleware
 
 import (
 	"net/http"
+	"regexp"
 	"time"
 )
 
 type MetricsData struct {
 	StatusCode int
 	Method     string
-	Path       string
+	Route      string
 	Elapsed    time.Duration
 }
 
@@ -17,6 +18,8 @@ type MetricsData struct {
 type MetricsService interface {
 	Responded(data MetricsData)
 }
+
+var patternPlaceholdersRegxp = regexp.MustCompile(`{([a-zA-Z0-9]+).*?}`)
 
 type responseWriter struct {
 	w http.ResponseWriter
@@ -37,23 +40,35 @@ func (w *responseWriter) WriteHeader(statusCode int) {
 	w.w.WriteHeader(statusCode)
 }
 
-func Measurement(next http.Handler, m MetricsService) http.Handler {
+type MatchedRoutePatternFunc func(r *http.Request) string
+
+func Measurement(next http.Handler, serv MetricsService, patternFunc MatchedRoutePatternFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		start := time.Now()
 		ww := &responseWriter{w: w}
 		next.ServeHTTP(ww, req)
 
-		m.Responded(MetricsData{
+		var routePattern string
+		if patternFunc != nil {
+			routePattern = patternFunc(req)
+		}
+
+		if len(routePattern) > 0 {
+			routePattern = patternPlaceholdersRegxp.
+				ReplaceAllString(routePattern, `$1`)
+		}
+
+		serv.Responded(MetricsData{
 			StatusCode: ww.statusCode,
 			Method:     req.Method,
-			Path:       req.URL.Path,
+			Route:      routePattern,
 			Elapsed:    time.Since(start),
 		})
 	})
 }
 
-func MeasurementN(m MetricsService) func(next http.Handler) http.Handler {
+func MeasurementN(serv MetricsService, patternFunc MatchedRoutePatternFunc) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		return Measurement(next, m)
+		return Measurement(next, serv, patternFunc)
 	}
 }
