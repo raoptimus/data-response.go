@@ -23,11 +23,15 @@ type BinaryData struct {
 	fileName    string
 }
 
-func NewBinaryData(data []byte, mimeType string) *BinaryData {
-	if len(mimeType) == 0 {
+func NewBinaryData(data []byte, fileName, mimeType string) *BinaryData {
+	if mimeType == "" {
 		mimeType = "application/octet-stream"
 	}
-	return &BinaryData{data: data, contentType: mimeType}
+	return &BinaryData{
+		data:        data,
+		fileName:    fileName,
+		contentType: mimeType,
+	}
 }
 
 func (j *Json) Write(w http.ResponseWriter, statusCode int, data any) error {
