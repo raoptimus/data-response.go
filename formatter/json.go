@@ -37,7 +37,7 @@ func NewBinaryData(data []byte, fileName, mimeType string) *BinaryData {
 func (j *Json) Write(w http.ResponseWriter, statusCode int, data any) error {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 
-	if bt, ok := data.(BinaryData); ok {
+	if bt, ok := data.(*BinaryData); ok {
 		w.Header().Set("Content-Type", bt.contentType)
 		if len(bt.fileName) > 0 {
 			w.Header().Set(
