@@ -8,8 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestJsonWrite_Success(t *testing.T) {
-	contentType := "application/some"
+const (
+	contentType = "application/some"
+)
+
+func TestBinaryWrite_Success(t *testing.T) {
 	binary := NewBinaryData([]byte("success"), "some_name", contentType)
 	json := NewJson()
 
@@ -24,13 +27,12 @@ func TestJsonWrite_Success(t *testing.T) {
 	handler(w, nil)
 }
 
-func TestJsonWrite_Error(t *testing.T) {
-	contentType := "application/some"
-	binary := *NewBinaryData([]byte("success"), "some_name", contentType)
+func TestBinaryWrite_Error(t *testing.T) {
+	data := struct{}{}
 	json := NewJson()
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
-		err := json.Write(w, http.StatusOK, binary)
+		err := json.Write(w, http.StatusOK, data)
 		require.NoError(t, err)
 		resp := w.Header().Get("Content-Type")
 		require.NotEqual(t, contentType, resp)
