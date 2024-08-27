@@ -35,12 +35,14 @@ func NewBinaryData(data []byte, fileName, mimeType string) *BinaryData {
 }
 
 func (j *Json) Write(w http.ResponseWriter, statusCode int, data any) error {
-	w.Header().Set("X-Content-Type-Options", "nosniff")
+	header := w.Header()
+
+	header.Set("X-Content-Type-Options", "nosniff")
 
 	if bt, ok := data.(*BinaryData); ok {
-		w.Header().Set("Content-Type", bt.contentType)
+		header.Set("Content-Type", bt.contentType)
 		if len(bt.fileName) > 0 {
-			w.Header().Set(
+			header.Set(
 				"Content-Disposition",
 				`attachment; filename="`+html.EscapeString(bt.fileName)+`"`,
 			)
@@ -50,7 +52,7 @@ func (j *Json) Write(w http.ResponseWriter, statusCode int, data any) error {
 		return err
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	header.Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 
 	enc := json.NewEncoder(w)

@@ -16,7 +16,7 @@ func NewDataResponse(code int, data any) *DataResponse {
 	return &DataResponse{
 		data:       data,
 		statusCode: code,
-		header:     http.Header{},
+		header:     make(http.Header),
 	}
 }
 
@@ -42,9 +42,26 @@ func (d *DataResponse) HeaderLine(key string) string {
 
 func (d *DataResponse) WithHeader(key, value string) *DataResponse {
 	d.header.Add(key, value)
+
+	return d
+}
+
+func (d *DataResponse) WithHeaders(headers http.Header) *DataResponse {
+	for k, values := range headers {
+		for _, v := range values {
+			d.header.Add(k, v)
+		}
+	}
+
 	return d
 }
 
 func (d *DataResponse) HasHeader(key string) bool {
 	return d.header.Get(key) != ""
+}
+
+func (d *DataResponse) WithData(data any) *DataResponse {
+	d.data = data
+
+	return d
 }
