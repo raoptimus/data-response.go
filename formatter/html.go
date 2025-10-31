@@ -15,17 +15,20 @@ func NewHtml() *Html {
 }
 
 func (h *Html) Write(w http.ResponseWriter, statusCode int, data any) error {
+	switch v := data.(type) {
+	case string:
+		if _, err := io.WriteString(w, v); err != nil {
+			return err
+		}
+	case []byte:
+		if _, err := w.Write(v); err != nil {
+			return err
+		}
+	default:
+		return ErrDataIsNotStringable
+	}
+
 	w.WriteHeader(statusCode)
 
-	if s, ok := data.(string); ok {
-		_, err := io.WriteString(w, s)
-		return err
-	}
-
-	if b, ok := data.([]byte); ok {
-		_, err := w.Write(b)
-		return err
-	}
-
-	return ErrDataIsNotStringable
+	return nil
 }
