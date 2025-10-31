@@ -6,6 +6,8 @@ import (
 	response "github.com/raoptimus/data-response.go"
 )
 
+type NoBody struct{}
+
 // DataResponseAPIFunc - оборачивает http вызов в response.Handler и возвращает http.HandlerFunc.
 func DataResponseAPIFunc(f response.FactoryWithFormatWriter, h response.HandlerAPI) http.HandlerFunc {
 	writer := f.FormatWriter()
@@ -19,9 +21,18 @@ func DataResponseAPIFunc(f response.FactoryWithFormatWriter, h response.HandlerA
 			}
 		}
 
-		if err := writer.Write(w, resp.StatusCode(), resp.Data()); err != nil {
+		data := resp.Data()
+		statusCode := resp.StatusCode()
+
+		if _, ok := data.(NoBody); ok {
+			w.WriteHeader(statusCode)
+
+			return
+		}
+
+		if err := writer.Write(w, statusCode, data); err != nil {
 			internalResp := f.InternalServerErrorResponse(req.Context(), err)
-			if err := writer.Write(w, resp.StatusCode(), internalResp.Data()); err != nil {
+			if err := writer.Write(w, internalResp.StatusCode(), internalResp.Data()); err != nil {
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			}
