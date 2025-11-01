@@ -17,9 +17,12 @@ func TestBinaryWrite_Success(t *testing.T) {
 	json := NewJson()
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
-		err := json.Write(w, http.StatusOK, binary)
+		header := w.Header()
+		bytes, err := json.Marshal(header, binary)
 		require.NoError(t, err)
-		resp := w.Header().Get("Content-Type")
+		require.NotEmpty(t, bytes)
+
+		resp := header.Get("Content-Type")
 		require.Equal(t, contentType, resp)
 	}
 
@@ -32,9 +35,13 @@ func TestBinaryWrite_Error(t *testing.T) {
 	json := NewJson()
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
-		err := json.Write(w, http.StatusOK, data)
+		header := w.Header()
+
+		bytes, err := json.Marshal(header, data)
 		require.NoError(t, err)
-		resp := w.Header().Get("Content-Type")
+		require.NotEmpty(t, bytes)
+
+		resp := header.Get("Content-Type")
 		require.NotEqual(t, contentType, resp)
 	}
 

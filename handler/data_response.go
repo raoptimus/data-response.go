@@ -1,16 +1,18 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 
+	"github.com/pkg/errors"
 	response "github.com/raoptimus/data-response.go"
 )
 
-type NoBody struct{}
-
 // DataResponseAPIFunc - оборачивает http вызов в response.Handler и возвращает http.HandlerFunc.
 func DataResponseAPIFunc(f response.FactoryWithFormatWriter, h response.HandlerAPI) http.HandlerFunc {
-	writer := f.FormatWriter()
+	encoder := f.FormatWriter()
+	wrec, canWrec := f.(response.WriteResponseErrorCallback)
+
 	return func(w http.ResponseWriter, req *http.Request) {
 		resp := h.Handle(f, req)
 
@@ -21,24 +23,35 @@ func DataResponseAPIFunc(f response.FactoryWithFormatWriter, h response.HandlerA
 			}
 		}
 
-		data := resp.Data()
 		statusCode := resp.StatusCode()
+		data := resp.Data()
 
-		if _, ok := data.(NoBody); ok {
+		if data == nil {
 			w.WriteHeader(statusCode)
 
 			return
 		}
 
-		if err := writer.Write(w, statusCode, data); err != nil {
+		bytes, err := encoder.Marshal(header, data)
+		if err != nil {
 			internalResp := f.InternalServerErrorResponse(req.Context(), err)
-			if err := writer.Write(w, internalResp.StatusCode(), internalResp.Data()); err != nil {
+			if bytes, err = encoder.Marshal(header, internalResp.Data()); err != nil {
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+
 				return
 			}
 
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-			return
+			statusCode = internalResp.StatusCode()
+		}
+
+		w.WriteHeader(statusCode)
+
+		if _, err := w.Write(bytes); err != nil {
+			if canWrec {
+				wrec.WriteResponseError(req.Context(), errors.Wrap(err, "write response"))
+			} else {
+				log.Printf("failed to write response: %v\n", err)
+			}
 		}
 	}
 }

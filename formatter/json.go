@@ -1,9 +1,12 @@
 package formatter
 
 import (
-	json "github.com/json-iterator/go"
+	"bytes"
 	"html"
 	"net/http"
+
+	json "github.com/json-iterator/go"
+	"github.com/pkg/errors"
 )
 
 type Json struct {
@@ -27,27 +30,22 @@ type BinaryData struct {
 	fileName    string
 }
 
-func NewBinaryData(data []byte, fileName, mimeType string) *BinaryData {
+func NewBinaryData(data []byte, fileName, mimeType string) BinaryData {
 	if mimeType == "" {
 		mimeType = "application/octet-stream"
 	}
 
-	return &BinaryData{
+	return BinaryData{
 		data:        data,
 		fileName:    fileName,
 		contentType: mimeType,
 	}
 }
 
-func (j *Json) Write(w http.ResponseWriter, statusCode int, data any) error {
-	header := w.Header()
+func (j *Json) Marshal(header http.Header, data any) ([]byte, error) {
 	header.Set("X-Content-Type-Options", "nosniff")
 
-	if bt, ok := data.(*BinaryData); ok {
-		if _, err := w.Write(bt.data); err != nil {
-			return err
-		}
-
+	if bt, ok := data.(BinaryData); ok {
 		header.Set("Content-Type", bt.contentType)
 		if len(bt.fileName) > 0 {
 			header.Set(
@@ -56,24 +54,22 @@ func (j *Json) Write(w http.ResponseWriter, statusCode int, data any) error {
 			)
 		}
 
-		w.WriteHeader(statusCode)
-
-		return nil
+		return bt.data, nil
 	}
 
-	enc := j.encoder.NewEncoder(w)
+	var buffer bytes.Buffer
+	enc := j.encoder.NewEncoder(&buffer)
 	if j.pretty {
 		enc.SetIndent("", "    ")
 	}
 
 	if err := enc.Encode(data); err != nil {
-		return err
+		return nil, errors.Wrapf(err, "encoding data '%T' to json", data)
 	}
 
 	header.Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
 
-	return nil
+	return buffer.Bytes(), nil
 }
 
 func (j *Json) Pretty() *Json {
