@@ -5,8 +5,12 @@ import (
 	"net/http"
 )
 
+type WriteResponseErrorCallback interface {
+	WriteResponseError(ctx context.Context, err error)
+}
+
 type FormatWriter interface {
-	Write(w http.ResponseWriter, statusCode int, data any) error
+	Marshal(header http.Header, data any) ([]byte, error)
 }
 
 type FactoryWithFormatWriter interface {

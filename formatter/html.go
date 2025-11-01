@@ -1,9 +1,9 @@
 package formatter
 
 import (
-	"errors"
-	"io"
 	"net/http"
+
+	"github.com/pkg/errors"
 )
 
 var ErrDataIsNotStringable = errors.New("data is not a string-able")
@@ -14,21 +14,13 @@ func NewHtml() *Html {
 	return &Html{}
 }
 
-func (h *Html) Write(w http.ResponseWriter, statusCode int, data any) error {
+func (h *Html) Marshal(_ http.Header, data any) ([]byte, error) {
 	switch v := data.(type) {
 	case string:
-		if _, err := io.WriteString(w, v); err != nil {
-			return err
-		}
+		return []byte(v), nil
 	case []byte:
-		if _, err := w.Write(v); err != nil {
-			return err
-		}
+		return v, nil
 	default:
-		return ErrDataIsNotStringable
+		return nil, errors.WithStack(ErrDataIsNotStringable)
 	}
-
-	w.WriteHeader(statusCode)
-
-	return nil
 }

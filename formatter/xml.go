@@ -3,6 +3,8 @@ package formatter
 import (
 	"encoding/xml"
 	"net/http"
+
+	"github.com/pkg/errors"
 )
 
 type Xml struct{}
@@ -11,13 +13,13 @@ func NewXml() *Xml {
 	return &Xml{}
 }
 
-func (x *Xml) Write(w http.ResponseWriter, statusCode int, data any) error {
-	if err := xml.NewEncoder(w).Encode(data); err != nil {
-		return err
+func (x *Xml) Marshal(header http.Header, data any) ([]byte, error) {
+	bytes, err := xml.Marshal(data)
+	if err != nil {
+		return nil, errors.Wrapf(err, "encoding data '%T' to xml", data)
 	}
 
-	w.Header().Set("Content-Type", "application/xml")
-	w.WriteHeader(statusCode)
+	header.Set("Content-Type", "application/xml")
 
-	return nil
+	return bytes, nil
 }
