@@ -1,4 +1,4 @@
-package response
+package dataresponse
 
 import (
 	"context"
@@ -19,7 +19,7 @@ type FactoryWithFormatWriter interface {
 	FormatWriter() FormatWriter
 }
 
-type Factory interface {
+type FactoryOld interface {
 	Response(ctx context.Context, statusCode int, data any) *DataResponse
 	InternalServerErrorResponse(ctx context.Context, err error) *DataResponse
 }
@@ -34,7 +34,7 @@ type FactoryAPI interface {
 }
 
 type Handler interface {
-	Handle(f Factory, r *http.Request) *DataResponse
+	Handle(f FactoryOld, r *http.Request) *DataResponse
 }
 
 type HandlerAPI interface {

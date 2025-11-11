@@ -4,22 +4,43 @@ import (
 	"encoding/xml"
 	"net/http"
 
-	"github.com/pkg/errors"
+	dataresponse "github.com/raoptimus/data-response.go"
 )
 
-type Xml struct{}
-
-func NewXml() *Xml {
-	return &Xml{}
+// XML is an XML response formatter.
+type XML struct {
+	dataresponse.BaseFormatter
+	Indent bool
 }
 
-func (x *Xml) Marshal(header http.Header, data any) ([]byte, error) {
-	bytes, err := xml.Marshal(data)
-	if err != nil {
-		return nil, errors.Wrapf(err, "encoding data '%T' to xml", data)
+// NewXML creates a new XML formatter.
+func NewXML() *XML {
+	return &XML{Indent: false}
+}
+
+// NewXMLIndent creates a new XML formatter with indentation.
+func NewXMLIndent() *XML {
+	return &XML{Indent: true}
+}
+
+// Format writes XML response.
+func (f *XML) Format(w http.ResponseWriter, resp dataresponse.DataResponse) error {
+	if resp.IsBinary() {
+		return dataresponse.NewError(http.StatusInternalServerError, "cannot format binary as XML")
 	}
 
-	header.Set("Content-Type", "application/xml")
+	f.WriteHeaders(w, resp, f.ContentType())
+	w.WriteHeader(resp.StatusCode())
 
-	return bytes, nil
+	encoder := xml.NewEncoder(w)
+	if f.Indent {
+		encoder.Indent("", "  ")
+	}
+
+	return encoder.Encode(resp)
+}
+
+// ContentType returns application/xml.
+func (f *XML) ContentType() string {
+	return dataresponse.MimeTypeXML.String()
 }

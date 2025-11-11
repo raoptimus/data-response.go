@@ -1,78 +1,55 @@
 package formatter
 
 import (
-	"bytes"
-	"html"
 	"net/http"
 
 	json "github.com/json-iterator/go"
-	"github.com/pkg/errors"
+	dataresponse "github.com/raoptimus/data-response.go"
 )
 
-type Json struct {
-	encoder json.API
-	pretty  bool
+// JSON is a JSON response formatter.
+type JSON struct {
+	dataresponse.BaseFormatter
+	Indent bool
 }
 
-func NewJson() *Json {
-	return &Json{
-		encoder: json.ConfigCompatibleWithStandardLibrary,
-		pretty:  false,
-	}
-}
-func NewJsonPretty() *Json {
-	return NewJson().Pretty()
+// NewJSON creates a new JSON formatter.
+func NewJSON() *JSON {
+	return &JSON{Indent: false}
 }
 
-type BinaryData struct {
-	data        []byte
-	contentType string
-	fileName    string
+// NewJSONIndent creates a new JSON formatter with pretty-printing.
+func NewJSONIndent() *JSON {
+	return &JSON{Indent: true}
 }
 
-func NewBinaryData(data []byte, fileName, mimeType string) BinaryData {
-	if mimeType == "" {
-		mimeType = "application/octet-stream"
+// Format writes JSON response.
+func (f *JSON) Format(w http.ResponseWriter, resp dataresponse.DataResponse) error {
+	if resp.IsBinary() {
+		return dataresponse.NewError(http.StatusInternalServerError, "cannot format binary as JSON")
 	}
 
-	return BinaryData{
-		data:        data,
-		fileName:    fileName,
-		contentType: mimeType,
+	f.WriteHeaders(w, resp, f.ContentType())
+	w.WriteHeader(resp.StatusCode())
+
+	// Create response structure
+	output := map[string]any{
+		"status": resp.StatusCode(),
 	}
+
+	if resp.Data() != nil {
+		output["data"] = resp.Data()
+	}
+
+	encoder := json.NewEncoder(w)
+	if f.Indent {
+		encoder.SetIndent("", "  ")
+	}
+
+	return encoder.Encode(output)
 }
 
-func (j *Json) Marshal(header http.Header, data any) ([]byte, error) {
-	header.Set("X-Content-Type-Options", "nosniff")
-
-	if bt, ok := data.(BinaryData); ok {
-		header.Set("Content-Type", bt.contentType)
-		if len(bt.fileName) > 0 {
-			header.Set(
-				"Content-Disposition",
-				`attachment; filename="`+html.EscapeString(bt.fileName)+`"`,
-			)
-		}
-
-		return bt.data, nil
-	}
-
-	var buffer bytes.Buffer
-	enc := j.encoder.NewEncoder(&buffer)
-	if j.pretty {
-		enc.SetIndent("", "    ")
-	}
-
-	if err := enc.Encode(data); err != nil {
-		return nil, errors.Wrapf(err, "encoding data '%T' to json", data)
-	}
-
-	header.Set("Content-Type", "application/json")
-
-	return buffer.Bytes(), nil
-}
-
-func (j *Json) Pretty() *Json {
-	j.pretty = true
-	return j
+// ContentType returns application/json.
+func (f *JSON) ContentType() string {
+	return dataresponse.MimeTypeJSON.String()
 }
