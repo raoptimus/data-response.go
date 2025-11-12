@@ -30,8 +30,8 @@ func (BaseFormatter) CanFormatBinary() bool {
 func (BaseFormatter) WriteHeaders(w http.ResponseWriter, resp DataResponse, contentType string) {
 	// Write custom headers from response (supporting multiple values per key)
 	for key, values := range resp.Header() {
-		for _, value := range values {
-			w.Header().Add(key, value)
+		for i := range values {
+			w.Header().Add(key, values[i])
 		}
 	}
 

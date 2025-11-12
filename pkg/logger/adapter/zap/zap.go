@@ -26,22 +26,22 @@ func NewZapFromLogger(logger *zap.Logger) *Zap {
 }
 
 // Debug logs a debug-level message.
-func (a *Zap) Debug(ctx context.Context, msg string, args ...any) {
+func (a *Zap) Debug(_ context.Context, msg string, args ...any) {
 	a.logger.Debugw(msg, args...)
 }
 
 // Info logs an info-level message.
-func (a *Zap) Info(ctx context.Context, msg string, args ...any) {
+func (a *Zap) Info(_ context.Context, msg string, args ...any) {
 	a.logger.Infow(msg, args...)
 }
 
 // Warn logs a warning-level message.
-func (a *Zap) Warn(ctx context.Context, msg string, args ...any) {
+func (a *Zap) Warn(_ context.Context, msg string, args ...any) {
 	a.logger.Warnw(msg, args...)
 }
 
 // Error logs an error-level message.
-func (a *Zap) Error(ctx context.Context, msg string, args ...any) {
+func (a *Zap) Error(_ context.Context, msg string, args ...any) {
 	a.logger.Errorw(msg, args...)
 }
 

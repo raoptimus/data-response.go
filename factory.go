@@ -2,12 +2,30 @@ package dataresponse
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"os"
-	"strings"
+	"strconv"
 
 	"github.com/raoptimus/data-response.go/pkg/logger"
+)
+
+type (
+	TemplateError struct {
+		Pointer string `json:"pointer,omitempty"` // Путь до свойства с проблемой
+		NodeID  string `json:"nodeId,omitempty"`  // ID узла(uuid) в котором возникла ошибка
+		PortID  string `json:"portId,omitempty"`  // ID порта узла(uuid) в котором возникла ошибка
+		Detail  string `json:"detail"`            // Человеко-читаемое описание ошибки
+	}
+	TemplateErrors []TemplateError
+	Template       struct {
+		Code    HTTPCode       `json:"code,omitempty"`
+		Status  string         `json:"status,omitempty"`
+		Title   string         `json:"title,omitempty"`
+		Details any            `json:"details,omitempty"`
+		Errors  TemplateErrors `json:"errors,omitempty"`
+	}
 )
 
 // Factory creates standardized HTTP responses.
@@ -21,7 +39,7 @@ type Factory struct {
 }
 
 // ErrorBuilder builds error response data structure.
-type ErrorBuilder func(ctx context.Context, status int, message string, data any) any
+type ErrorBuilder func(ctx context.Context, status int, message string, details any) any
 
 // ValidationErrorBuilder builds validation error response data structure.
 type ValidationErrorBuilder func(ctx context.Context, message string, attributeErrors map[string][]string) any
@@ -161,7 +179,6 @@ func (f *Factory) Error(ctx context.Context, status int, message string) DataRes
 
 	return DataResponse{
 		statusCode: status,
-		message:    message,
 		data:       data,
 		header:     make(http.Header),
 	}
@@ -174,23 +191,24 @@ func (f *Factory) InternalError(ctx context.Context, err error) DataResponse {
 	}
 
 	message := "Internal server error"
-	var errorData any
+	var details any
 
 	if f.verbosity && err != nil {
-		errorDetails := map[string]string{
+		errData := map[string]string{
 			"error": err.Error(),
 		}
 
-		if e, ok := err.(*Error); ok {
+		var e *Error
+		if errors.As(err, &e) {
 			if st := e.StackTrace(); st != "" {
-				errorDetails["stack_trace"] = st
+				errData["stack_trace"] = st
 			}
 		}
 
-		errorData = errorDetails
+		details = errData
 	}
 
-	data := f.errorBuilder(ctx, http.StatusInternalServerError, message, errorData)
+	data := f.errorBuilder(ctx, http.StatusInternalServerError, message, details)
 
 	return DataResponse{
 		statusCode: http.StatusInternalServerError,
@@ -323,18 +341,32 @@ func (f *Factory) Clone(opts ...Option) *Factory {
 }
 
 // defaultErrorBuilder creates simple error structure.
-func defaultErrorBuilder(ctx context.Context, status int, message string, data any) any {
-	if data != nil {
-		return data
+func defaultErrorBuilder(ctx context.Context, status int, message string, details any) any {
+	return Template{
+		Code:    CodeFromStatus(http.StatusInternalServerError),
+		Status:  strconv.Itoa(http.StatusInternalServerError),
+		Title:   message,
+		Details: details,
 	}
-	return nil
 }
 
 // defaultValidationErrorBuilder creates simple validation error structure.
 func defaultValidationErrorBuilder(ctx context.Context, message string, attributeErrors map[string][]string) any {
-	return map[string]any{
-		"message": message,
-		"errors":  attributeErrors,
+	errorsData := make(TemplateErrors, 0, len(attributeErrors))
+	for k, v := range attributeErrors {
+		for _, m := range v {
+			errorsData = append(errorsData, TemplateError{
+				Pointer: k,
+				Detail:  m,
+			})
+		}
+	}
+
+	return Template{
+		Code:   CodeFromStatus(http.StatusUnprocessableEntity),
+		Status: strconv.Itoa(http.StatusUnprocessableEntity),
+		Title:  message,
+		Errors: errorsData,
 	}
 }
 
@@ -361,49 +393,3 @@ func (noopFormatter) ContentType() string {
 func (noopFormatter) CanFormatBinary() bool {
 	return false
 }
-
-//
-//func NewDummyFactory(fw FormatWriter, verbosity bool) *DummyFactory {
-//	return &DummyFactory{fw: fw, verbosity: verbosity}
-//}
-//
-//type DummyFactory struct {
-//	fw        FormatWriter
-//	verbosity bool
-//}
-//
-//func (f *DummyFactory) FormatWriter() FormatWriter {
-//	return f.fw
-//}
-//
-//func (f *DummyFactory) Response(_ context.Context, statusCode int, data any) *DataResponse {
-//	return NewDataResponse(statusCode, data)
-//}
-//
-//func (f *DummyFactory) SuccessResponse(ctx context.Context, data any) *DataResponse {
-//	return f.Response(ctx, http.StatusOK, data)
-//}
-//
-//func (f *DummyFactory) InternalServerErrorResponse(ctx context.Context, err error) *DataResponse {
-//	var message string
-//	if f.verbosity {
-//		message = err.Error()
-//	} else {
-//		message = http.StatusText(http.StatusInternalServerError)
-//	}
-//
-//	return f.Response(ctx, http.StatusInternalServerError, message)
-//}
-//
-//func (f *DummyFactory) UnprocessableEntityResponse(ctx context.Context, message string, attributesErrors map[string][]string, ) *DataResponse {
-//	// TODO: convert attributes to string
-//	return f.Response(ctx, http.StatusUnprocessableEntity, message)
-//}
-//
-//func (f *DummyFactory) NotFoundEntityResponse(ctx context.Context, message string) *DataResponse {
-//	return f.Response(ctx, http.StatusOK, "NotFound: "+message)
-//}
-//
-//func (f *DummyFactory) ErrorResponse(ctx context.Context, statusCode int, message string) *DataResponse {
-//	return f.Response(ctx, statusCode, message)
-//}

@@ -61,7 +61,7 @@ func main() {
 			"name":  {"Name must be at least 3 characters"},
 		}
 
-		resp := factory.ValidationError(r.Context(), attributeErrors)
+		resp := factory.ValidationError(r.Context(), "invalid request", attributeErrors)
 		dataresponse.Write(w, r, resp, factory)
 	})
 
@@ -73,7 +73,8 @@ func main() {
 
 	negotiator := middleware.NewContentNegotiator(factory, formatterMap, formatter.NewJSON())
 	recovery := middleware.NewRecover(factory)
-	allowJSON := middleware.AllowContentType(factory, "application/json", "")
+	// todo: it does not work
+	allowJSON := middleware.AllowContentType(factory, dataresponse.MimeTypeJSON.String())
 	compressor := middleware.NewAutoCompressor(middleware.DefaultCompression)
 
 	handler := compressor.Handler(

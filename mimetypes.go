@@ -5,8 +5,9 @@ type MimeType string
 
 // Common MIME types for various file and content types.
 const (
+
 	// Text MIME types
-	
+
 	MimeTypePlainText  MimeType = "text/plain; charset=utf-8"
 	MimeTypeHTML       MimeType = "text/html; charset=utf-8"
 	MimeTypeCSS        MimeType = "text/css; charset=utf-8"
@@ -127,5 +128,6 @@ func MimeTypeFromExtension(ext string) MimeType {
 	if mimeType, ok := MimeTypeMapping[ext]; ok {
 		return mimeType
 	}
+	
 	return MimeTypeOctetStream
 }

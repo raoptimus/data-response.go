@@ -44,6 +44,7 @@ func (f *Binary) Format(w http.ResponseWriter, resp dataresponse.DataResponse) e
 
 	buf := make([]byte, f.BufferSize)
 	_, err := io.CopyBuffer(w, resp.Binary(), buf)
+	
 	return err
 }
 

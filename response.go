@@ -10,7 +10,6 @@ type DataResponse struct {
 	statusCode  int
 	data        any
 	header      http.Header
-	contentType string
 	binary      io.Reader
 	filename    string
 	size        int64
@@ -43,7 +42,7 @@ func (r DataResponse) HeaderLine(key string) string {
 
 // ContentType returns the custom content type.
 func (r DataResponse) ContentType() string {
-	return r.contentType
+	return r.HeaderLine(HeaderContentType)
 }
 
 // Binary returns the binary data reader.
@@ -102,8 +101,7 @@ func (r DataResponse) WithHeaders(headers http.Header) DataResponse {
 
 // WithContentType returns a copy of response with a custom content type.
 func (r DataResponse) WithContentType(contentType string) DataResponse {
-	r.contentType = contentType
-	return r
+	return r.WithHeader(HeaderContentType, contentType)
 }
 
 // WithData returns a copy of response with modified data.

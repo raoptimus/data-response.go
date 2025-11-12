@@ -32,21 +32,12 @@ func (f *JSON) Format(w http.ResponseWriter, resp dataresponse.DataResponse) err
 	f.WriteHeaders(w, resp, f.ContentType())
 	w.WriteHeader(resp.StatusCode())
 
-	// Create response structure
-	output := map[string]any{
-		"status": resp.StatusCode(),
-	}
-
-	if resp.Data() != nil {
-		output["data"] = resp.Data()
-	}
-
 	encoder := json.NewEncoder(w)
 	if f.Indent {
 		encoder.SetIndent("", "  ")
 	}
 
-	return encoder.Encode(output)
+	return encoder.Encode(resp.Data())
 }
 
 // ContentType returns application/json.
