@@ -35,7 +35,12 @@ func ToChiMiddleware(factory *Factory, drMiddleware Middleware) ChiMiddleware {
 			resp := drMiddleware.ServeHTTP(r, handler)
 
 			// Write the response if not already written
-			if !w.(interface{ Written() bool }).Written() {
+			var written bool
+			if ww, ok := w.(interface{ Written() bool }); ok {
+				written = ww.Written()
+			}
+
+			if !written {
 				Write(w, r, resp, factory)
 			}
 		})

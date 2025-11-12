@@ -230,6 +230,7 @@ func (f *Factory) Unauthorized(ctx context.Context, message string) DataResponse
 	if message == "" {
 		message = "Unauthorized"
 	}
+	
 	return f.Error(ctx, http.StatusUnauthorized, message)
 }
 
@@ -343,8 +344,8 @@ func (f *Factory) Clone(opts ...Option) *Factory {
 // defaultErrorBuilder creates simple error structure.
 func defaultErrorBuilder(ctx context.Context, status int, message string, details any) any {
 	return Template{
-		Code:    CodeFromStatus(http.StatusInternalServerError),
-		Status:  strconv.Itoa(http.StatusInternalServerError),
+		Code:   CodeFromStatus(status),
+		Status: strconv.Itoa(status),
 		Title:   message,
 		Details: details,
 	}
