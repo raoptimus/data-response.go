@@ -1,56 +1,44 @@
 package formatter
 
 import (
-	"io"
-	"net/http"
 	"path/filepath"
 
-	dataresponse "github.com/raoptimus/data-response.go"
+	dr "github.com/raoptimus/data-response.go"
 )
 
-// Binary is a binary file formatter with efficient streaming.
+// Binary is a binary file formatter.
 type Binary struct {
-	dataresponse.BaseFormatter
-	BufferSize int
+	dr.BaseFormatter
 }
 
-// NewBinary creates a new binary formatter with default 32KB buffer.
+// NewBinary creates a new binary formatter.
 func NewBinary() *Binary {
-	return &Binary{
-		BufferSize: 32 * 1024,
-	}
+	return &Binary{}
 }
 
-// Format writes binary response with efficient buffered copying.
-func (f *Binary) Format(w http.ResponseWriter, resp dataresponse.DataResponse) error {
+// Format prepares binary data for writing.
+func (f *Binary) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
 	if !resp.IsBinary() {
-		return dataresponse.NewError(http.StatusInternalServerError, "response is not binary")
+		return dr.FormattedResponse{}, dr.NewError(500, "response is not binary")
 	}
 
 	contentType := resp.ContentType()
 	if contentType == "" {
-		// Use MimeTypeFromExtension
 		ext := filepath.Ext(resp.Filename())
-		contentType = dataresponse.MimeTypeFromExtension(ext).String()
+		contentType = dr.MimeTypeFromExtension(ext).String()
 	}
 
-	f.WriteHeaders(w, resp, contentType)
-	w.WriteHeader(resp.StatusCode())
-
-	if resp.Size() > 0 {
-		_, err := io.CopyN(w, resp.Binary(), resp.Size())
-		return err
-	}
-
-	buf := make([]byte, f.BufferSize)
-	_, err := io.CopyBuffer(w, resp.Binary(), buf)
-	
-	return err
+	// Return stream for writer.go
+	return dr.FormattedResponse{
+		ContentType: contentType,
+		Stream:      resp.Binary(),
+		StreamSize:  resp.Size(),
+	}, nil
 }
 
 // ContentType returns application/octet-stream.
 func (f *Binary) ContentType() string {
-	return dataresponse.MimeTypeOctetStream.String()
+	return dr.MimeTypeOctetStream.String()
 }
 
 // CanFormatBinary returns true.
@@ -59,7 +47,7 @@ func (f *Binary) CanFormatBinary() bool {
 }
 
 func init() {
-	dataresponse.SetDefaultBinaryFormatter(func() dataresponse.Formatter {
+	dr.SetDefaultBinaryFormatter(func() dr.Formatter {
 		return NewBinary()
 	})
 }

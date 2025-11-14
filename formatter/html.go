@@ -1,18 +1,18 @@
 package formatter
 
 import (
+	"bytes"
 	"html/template"
-	"net/http"
 
 	"github.com/pkg/errors"
-	dataresponse "github.com/raoptimus/data-response.go"
+	dr "github.com/raoptimus/data-response.go"
 )
 
 var ErrDataIsNotStringable = errors.New("data is not a string-able")
 
 // HTML is an HTML response formatter.
 type HTML struct {
-	dataresponse.BaseFormatter
+	dr.BaseFormatter
 	template *template.Template
 }
 
@@ -28,35 +28,45 @@ func (f *HTML) WithTemplate(tmpl *template.Template) *HTML {
 }
 
 // Format writes HTML response.
-func (f *HTML) Format(w http.ResponseWriter, resp dataresponse.DataResponse) error {
+func (f *HTML) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
 	if resp.IsBinary() {
-		return dataresponse.NewError(http.StatusInternalServerError, "cannot format binary as HTML")
+		return dr.FormattedResponse{}, dr.NewError(500, "cannot format binary as HTML")
 	}
 
-	f.WriteHeaders(w, resp, f.ContentType())
-	w.WriteHeader(resp.StatusCode())
+	var buf bytes.Buffer
 
 	if f.template != nil {
-		return f.template.Execute(w, resp)
+		// Pass resp.Data() to template
+		if err := f.template.Execute(&buf, resp.Data()); err != nil {
+			return dr.FormattedResponse{}, dr.WrapError(500, err, "failed to execute template")
+		}
+	} else {
+		// Default template
+		if err := f.defaultTemplate(&buf, resp); err != nil {
+			return dr.FormattedResponse{}, err
+		}
 	}
 
-	return f.defaultTemplate(w, resp)
+	return dr.FormattedResponse{
+		ContentType: f.ContentType(),
+		Body:        buf.Bytes(),
+	}, nil
 }
 
-func (f *HTML) defaultTemplate(w http.ResponseWriter, resp dataresponse.DataResponse) error {
+func (f *HTML) defaultTemplate(buf *bytes.Buffer, resp dr.DataResponse) error {
 	dataBytes, err := f.dataToString(resp.Data())
 	if err != nil {
 		return err
 	}
-	
-	_, err = w.Write(dataBytes)
+
+	_, err = buf.Write(dataBytes)
 
 	return err
 }
 
 // ContentType returns text/html.
 func (f *HTML) ContentType() string {
-	return dataresponse.MimeTypeHTML.String()
+	return dr.MimeTypeHTML.String()
 }
 
 func (f *HTML) dataToString(data any) ([]byte, error) {

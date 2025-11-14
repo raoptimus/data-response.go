@@ -19,7 +19,7 @@ func AllowContentType(factory *dataresponse.Factory, contentTypes ...string) fun
 
 			if !slices.Contains(contentTypes, contentType) {
 				resp := factory.Error(r.Context(), http.StatusUnsupportedMediaType, "Unsupported Media Type")
-				dataresponse.Write(w, r, resp, factory)
+				dataresponse.Write(r.Context(), w, resp, factory)
 				return
 			}
 

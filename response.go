@@ -7,12 +7,13 @@ import (
 
 // DataResponse represents an HTTP response with data payload.
 type DataResponse struct {
-	statusCode  int
-	data        any
-	header      http.Header
-	binary      io.Reader
-	filename    string
-	size        int64
+	statusCode int
+	data       any
+	header     http.Header
+	binary     io.Reader
+	filename   string
+	size       int64
+	formatter  Formatter
 }
 
 // StatusCode returns the HTTP status code.
@@ -75,6 +76,14 @@ func (r DataResponse) HasHeader(key string) bool {
 	return r.header.Get(key) != ""
 }
 
+func (r DataResponse) Formatter() (_ Formatter, ok bool) {
+	if r.formatter != nil {
+		return r.formatter, true
+	}
+
+	return nil, false
+}
+
 // WithHeader returns a copy of response with an additional header.
 // It adds a value to the header list for the given key (supports multiple values).
 func (r DataResponse) WithHeader(key, value string) DataResponse {
@@ -82,6 +91,7 @@ func (r DataResponse) WithHeader(key, value string) DataResponse {
 		r.header = make(http.Header)
 	}
 	r.header.Add(key, value)
+
 	return r
 }
 
@@ -96,6 +106,7 @@ func (r DataResponse) WithHeaders(headers http.Header) DataResponse {
 			r.header.Add(key, value)
 		}
 	}
+
 	return r
 }
 
@@ -107,6 +118,39 @@ func (r DataResponse) WithContentType(contentType string) DataResponse {
 // WithData returns a copy of response with modified data.
 func (r DataResponse) WithData(data any) DataResponse {
 	r.data = data
+
 	return r
 }
 
+// WithCacheControl returns a copy of response with Cache-Control header.
+func (r DataResponse) WithCacheControl(value string) DataResponse {
+	return r.WithHeader(HeaderCacheControl, value)
+}
+
+// WithCORS returns a copy of response with CORS headers.
+func (r DataResponse) WithCORS(origin string, methods string, headers string) DataResponse {
+	r = r.WithHeader(HeaderAccessControlAllowOrigin, origin)
+	if methods != "" {
+		r = r.WithHeader(HeaderAccessControlAllowMethods, methods)
+	}
+	if headers != "" {
+		r = r.WithHeader(HeaderAccessControlAllowHeaders, headers)
+	}
+
+	return r
+}
+
+// WithSecurityHeaders returns a copy of response with common security headers.
+func (r DataResponse) WithSecurityHeaders() DataResponse {
+	r = r.WithHeader(HeaderXContentTypeOptions, ContentTypeOptionsNoSniff)
+	r = r.WithHeader(HeaderXFrameOptions, FrameOptionsDeny)
+	r = r.WithHeader(HeaderReferrerPolicy, ReferrerPolicyStrictOriginWhenCrossOrigin)
+
+	return r
+}
+
+func (r DataResponse) WithFormatter(formatter Formatter) DataResponse {
+	r.formatter = formatter
+
+	return r
+}

@@ -1,66 +1,43 @@
 package dataresponse
 
-// HTTP Header names as constants to avoid typos and improve code clarity.
+// HTTP Header names as constants.
 const (
-
 	// General Headers
 
 	HeaderCacheControl     = "Cache-Control"
 	HeaderConnection       = "Connection"
 	HeaderDate             = "Date"
-	HeaderPragma           = "Pragma"
-	HeaderTrailer          = "Trailer"
 	HeaderTransferEncoding = "Transfer-Encoding"
-	HeaderUpgrade          = "Upgrade"
-	HeaderVia              = "Via"
-	HeaderWarning          = "Warning"
 
 	// Request Headers
 
 	HeaderAccept             = "Accept"
-	HeaderAcceptCharset      = "Accept-Charset"
 	HeaderAcceptEncoding     = "Accept-Encoding"
 	HeaderAcceptLanguage     = "Accept-Language"
 	HeaderAuthorization      = "Authorization"
-	HeaderExpect             = "Expect"
-	HeaderFrom               = "From"
 	HeaderHost               = "Host"
-	HeaderIfMatch            = "If-Match"
 	HeaderIfModifiedSince    = "If-Modified-Since"
 	HeaderIfNoneMatch        = "If-None-Match"
-	HeaderIfRange            = "If-Range"
-	HeaderIfUnmodifiedSince  = "If-Unmodified-Since"
-	HeaderMaxForwards        = "Max-Forwards"
-	HeaderProxyAuthorization = "Proxy-Authorization"
-	HeaderRange              = "Range"
-	HeaderReferer            = "Referer"
-	HeaderTE                 = "TE"
 	HeaderUserAgent          = "User-Agent"
+	HeaderReferer = "Referer"
 
 	// Response Headers
-
-	HeaderAcceptRanges      = "Accept-Ranges"
-	HeaderAge               = "Age"
-	HeaderETag              = "ETag"
-	HeaderLocation          = "Location"
-	HeaderProxyAuthenticate = "Proxy-Authenticate"
-	HeaderRetryAfter        = "Retry-After"
-	HeaderServer            = "Server"
-	HeaderVary              = "Vary"
-	HeaderWWWAuthenticate   = "WWW-Authenticate"
+	
+	HeaderETag            = "ETag"
+	HeaderLocation        = "Location"
+	HeaderRetryAfter      = "Retry-After"
+	HeaderServer          = "Server"
+	HeaderVary            = "Vary"
+	HeaderWWWAuthenticate = "WWW-Authenticate"
 
 	// Entity Headers
 
-	HeaderAllow           = "Allow"
-	HeaderContentEncoding = "Content-Encoding"
-	HeaderContentLanguage = "Content-Language"
-	HeaderContentLength   = "Content-Length"
-	HeaderContentLocation = "Content-Location"
-	HeaderContentMD5      = "Content-MD5"
-	HeaderContentRange    = "Content-Range"
-	HeaderContentType     = "Content-Type"
-	HeaderExpires         = "Expires"
-	HeaderLastModified    = "Last-Modified"
+	HeaderContentEncoding    = "Content-Encoding"
+	HeaderContentLanguage    = "Content-Language"
+	HeaderContentLength      = "Content-Length"
+	HeaderContentType        = "Content-Type"
+	HeaderContentDisposition = "Content-Disposition"
+	HeaderLastModified       = "Last-Modified"
 
 	// Cookie Headers
 
@@ -75,8 +52,6 @@ const (
 	HeaderAccessControlAllowCredentials = "Access-Control-Allow-Credentials"
 	HeaderAccessControlExposeHeaders    = "Access-Control-Expose-Headers"
 	HeaderAccessControlMaxAge           = "Access-Control-Max-Age"
-	HeaderAccessControlRequestMethod    = "Access-Control-Request-Method"
-	HeaderAccessControlRequestHeaders   = "Access-Control-Request-Headers"
 	HeaderOrigin                        = "Origin"
 
 	// Security Headers
@@ -87,31 +62,66 @@ const (
 	HeaderXFrameOptions           = "X-Frame-Options"
 	HeaderXXSSProtection          = "X-XSS-Protection"
 	HeaderReferrerPolicy          = "Referrer-Policy"
-	HeaderPermissionsPolicy       = "Permissions-Policy"
 
-	// Custom Common Headers
+	// Custom Headers
 
 	HeaderXRequestID          = "X-Request-ID"
 	HeaderXCorrelationID      = "X-Correlation-ID"
 	HeaderXForwardedFor       = "X-Forwarded-For"
 	HeaderXForwardedProto     = "X-Forwarded-Proto"
-	HeaderXForwardedHost      = "X-Forwarded-Host"
 	HeaderXRealIP             = "X-Real-IP"
-	HeaderXCSRFToken          = "X-CSRF-Token"
 	HeaderXRateLimitLimit     = "X-RateLimit-Limit"
 	HeaderXRateLimitRemaining = "X-RateLimit-Remaining"
 	HeaderXRateLimitReset     = "X-RateLimit-Reset"
+	HeaderAPIVersion = "API-Version"
+)
 
-	// Content Disposition
+// Common header values as constants.
+const (
+	// Content-Type values
 
-	HeaderContentDisposition = "Content-Disposition"
+	ContentTypeJSON             = "application/json"
+	ContentTypeJSONCharsetUTF8  = "application/json; charset=utf-8"
+	ContentTypeXML              = "application/xml"
+	ContentTypeXMLCharsetUTF8   = "application/xml; charset=utf-8"
+	ContentTypeHTML             = "text/html"
+	ContentTypeHTMLCharsetUTF8  = "text/html; charset=utf-8"
+	ContentTypePlain            = "text/plain"
+	ContentTypePlainCharsetUTF8 = "text/plain; charset=utf-8"
+	ContentTypeForm             = "application/x-www-form-urlencoded"
+	ContentTypeMultipartForm    = "multipart/form-data"
+	ContentTypeOctetStream      = "application/octet-stream"
 
-	// API Versioning
+	// Cache-Control values
 
-	HeaderAPIVersion  = "API-Version"
-	HeaderXAPIVersion = "X-API-Version"
+	CacheControlNoCache = "no-cache"
+	CacheControlNoStore = "no-store"
+	CacheControlPublic  = "public"
+	CacheControlPrivate = "private"
+	CacheControlMaxAge  = "max-age"
 
-	// Link Header (RFC 5988)
+	// Connection values
 
-	HeaderLink = "Link"
+	ConnectionKeepAlive = "keep-alive"
+	ConnectionClose     = "close"
+
+	// Content-Encoding values
+
+	ContentEncodingGzip    = "gzip"
+	ContentEncodingDeflate = "deflate"
+	ContentEncodingBrotli  = "br"
+
+	// X-Content-Type-Options values
+
+	ContentTypeOptionsNoSniff = "nosniff"
+
+	// X-Frame-Options values
+
+	FrameOptionsDeny       = "DENY"
+	FrameOptionsSameOrigin = "SAMEORIGIN"
+
+	// Referrer-Policy values
+
+	ReferrerPolicyNoReferrer                  = "no-referrer"
+	ReferrerPolicyStrictOriginWhenCrossOrigin = "strict-origin-when-cross-origin"
 )

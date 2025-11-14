@@ -3,6 +3,8 @@ package slog
 import (
 	"context"
 	"log/slog"
+
+	"github.com/raoptimus/data-response.go/pkg/logger"
 )
 
 // Slog адаптирует log/slog к интерфейсу Logger
@@ -60,3 +62,5 @@ func attrsToAny(attrs []slog.Attr) []any {
 	}
 	return result
 }
+
+var _ logger.Logger = (*Slog)(nil)

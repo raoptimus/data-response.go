@@ -230,7 +230,7 @@ func (f *Factory) Unauthorized(ctx context.Context, message string) DataResponse
 	if message == "" {
 		message = "Unauthorized"
 	}
-	
+
 	return f.Error(ctx, http.StatusUnauthorized, message)
 }
 
@@ -371,18 +371,17 @@ func defaultValidationErrorBuilder(ctx context.Context, message string, attribut
 	}
 }
 
-// defaultFormatter returns a minimal no-op formatter.
+// defaultFormatter returns a minimal no-op formatter as fallback.
 func defaultFormatter() Formatter {
 	return &noopFormatter{}
 }
 
-// noopFormatter is a minimal formatter used as fallback.
+// noopFormatter is a minimal formatter used as fallback when no formatter is configured.
 type noopFormatter struct{}
 
-// Format writes the status code only.
-func (noopFormatter) Format(w http.ResponseWriter, resp DataResponse) error {
-	w.WriteHeader(resp.StatusCode())
-	return nil
+// Format writes only the status code.
+func (noopFormatter) Format(resp DataResponse) (FormattedResponse, error) {
+	return FormattedResponse{}, nil
 }
 
 // ContentType returns text/plain.

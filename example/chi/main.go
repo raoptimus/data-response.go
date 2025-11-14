@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -38,7 +39,7 @@ func main() {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	//r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(middleware.Timeout(60 * time.Second))
 
 	// ✅ Convert DataResponse middleware to chi middleware
 	authMW := NewAuth(factory, func(token string) bool {

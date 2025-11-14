@@ -4,46 +4,28 @@ import (
 	"net/http"
 	"strings"
 
-	dataresponse "github.com/raoptimus/data-response.go"
+	dr "github.com/raoptimus/data-response.go"
 )
 
-// ContentNegotiator is a middleware for content type negotiation.
-type ContentNegotiator struct {
-	factory          *dataresponse.Factory
-	formatters       map[string]dataresponse.Formatter
-	defaultFormatter dataresponse.Formatter
-}
+func ContentNegotiator(formatters map[string]dr.Formatter) func(next dr.Handler) dr.Handler {
+	return func(next dr.Handler) dr.Handler {
+		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
+			accept := r.Header.Get("Accept")
+			formatter := selectFormatter(accept, formatters, f.Formatter())
 
-// NewContentNegotiator creates a new content negotiator middleware.
-func NewContentNegotiator(factory *dataresponse.Factory, formatters map[string]dataresponse.Formatter, defaultFormatter dataresponse.Formatter) *ContentNegotiator {
-	return &ContentNegotiator{
-		factory:          factory,
-		formatters:       formatters,
-		defaultFormatter: defaultFormatter,
+			if formatter == nil {
+				// Return 406 Not Acceptable
+				return f.Error(r.Context(), http.StatusNotAcceptable, "Not Acceptable")
+			}
+
+			return next.Handle(r, f).WithFormatter(formatter)
+		})
 	}
 }
 
-// Handler returns the middleware handler.
-func (cn *ContentNegotiator) Handler(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		accept := r.Header.Get("Accept")
-		formatter := cn.selectFormatter(accept)
-
-		if formatter == nil {
-			// Return 406 Not Acceptable
-			resp := cn.factory.Error(r.Context(), http.StatusNotAcceptable, "Not Acceptable")
-			dataresponse.Write(w, r, resp, cn.factory)
-			return
-		}
-
-		ctx := dataresponse.ContextWithFormatter(r.Context(), formatter)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
-func (cn *ContentNegotiator) selectFormatter(accept string) dataresponse.Formatter {
+func selectFormatter(accept string, formatters map[string]dr.Formatter, defaultFormatter dr.Formatter) dr.Formatter {
 	if accept == "" {
-		return cn.defaultFormatter
+		return defaultFormatter
 	}
 
 	// Split by comma to handle multiple Accept values
@@ -55,10 +37,10 @@ func (cn *ContentNegotiator) selectFormatter(accept string) dataresponse.Formatt
 		}
 		part = strings.TrimSpace(part)
 
-		if formatter, ok := cn.formatters[part]; ok {
+		if formatter, ok := formatters[part]; ok {
 			return formatter
 		}
 	}
 
-	return cn.defaultFormatter
+	return defaultFormatter
 }

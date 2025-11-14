@@ -1,15 +1,15 @@
 package formatter
 
 import (
+	"bytes"
 	"encoding/xml"
-	"net/http"
 
-	dataresponse "github.com/raoptimus/data-response.go"
+	dr "github.com/raoptimus/data-response.go"
 )
 
 // XML is an XML response formatter.
 type XML struct {
-	dataresponse.BaseFormatter
+	dr.BaseFormatter
 	Indent bool
 }
 
@@ -23,24 +23,47 @@ func NewXMLIndent() *XML {
 	return &XML{Indent: true}
 }
 
-// Format writes XML response.
-func (f *XML) Format(w http.ResponseWriter, resp dataresponse.DataResponse) error {
+// Format converts DataResponse to formatted XML.
+func (f *XML) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
 	if resp.IsBinary() {
-		return dataresponse.NewError(http.StatusInternalServerError, "cannot format binary as XML")
+		return dr.FormattedResponse{}, dr.NewError(500, "cannot format binary as XML")
 	}
 
-	f.WriteHeaders(w, resp, f.ContentType())
-	w.WriteHeader(resp.StatusCode())
+	// Serialize only resp.Data()
+	data := resp.Data()
 
-	encoder := xml.NewEncoder(w)
+	if data == nil {
+		return dr.FormattedResponse{
+			ContentType: f.ContentType(),
+			Body:        []byte(""),
+		}, nil
+	}
+
+	var buf bytes.Buffer
+
+	// Add XML header
+	buf.WriteString(xml.Header)
+
+	encoder := xml.NewEncoder(&buf)
 	if f.Indent {
 		encoder.Indent("", "  ")
 	}
 
-	return encoder.Encode(resp)
+	if err := encoder.Encode(data); err != nil {
+		return dr.FormattedResponse{}, dr.WrapError(500, err, "failed to encode XML")
+	}
+
+	if err := encoder.Flush(); err != nil {
+		return dr.FormattedResponse{}, dr.WrapError(500, err, "failed to flush XML encoder")
+	}
+
+	return dr.FormattedResponse{
+		ContentType: f.ContentType(),
+		Body:        buf.Bytes(),
+	}, nil
 }
 
 // ContentType returns application/xml.
 func (f *XML) ContentType() string {
-	return dataresponse.MimeTypeXML.String()
+	return dr.MimeTypeXML.String()
 }

@@ -26,7 +26,7 @@ func (rec *Recover) Handler(next http.Handler) http.Handler {
 				panicErr := dataresponse.NewError(http.StatusInternalServerError, fmt.Sprintf("panic: %v", err))
 
 				resp := rec.factory.InternalError(ctx, panicErr)
-				dataresponse.Write(w, r, resp, rec.factory)
+				dataresponse.Write(r.Context(), w, resp, rec.factory)
 			}
 		}()
 

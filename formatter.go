@@ -1,14 +1,28 @@
 package dataresponse
 
 import (
-	"net/http"
-	"strconv"
+	"io"
 )
+
+// FormattedResponse represents a formatted response ready to be written.
+type FormattedResponse struct {
+	// ContentType for Content-Type header
+	ContentType string
+
+	// Body contains the formatted data (for non-binary responses)
+	Body []byte
+
+	// Stream contains binary data (for binary responses)
+	Stream io.Reader
+
+	// StreamSize is the size of stream data (-1 if unknown)
+	StreamSize int64
+}
 
 // Formatter defines the interface for response formatting strategies.
 type Formatter interface {
-	// Format writes the formatted response to http.ResponseWriter.
-	Format(w http.ResponseWriter, resp DataResponse) error
+	// Format converts DataResponse to FormattedResponse.
+	Format(resp DataResponse) (FormattedResponse, error)
 
 	// ContentType returns the default Content-Type for this formatter.
 	ContentType() string
@@ -23,32 +37,4 @@ type BaseFormatter struct{}
 // CanFormatBinary returns false by default.
 func (BaseFormatter) CanFormatBinary() bool {
 	return false
-}
-
-// WriteHeaders writes common headers to the response.
-// It handles both single and multiple values per header key using http.Header.
-func (BaseFormatter) WriteHeaders(w http.ResponseWriter, resp DataResponse, contentType string) {
-	// Write custom headers from response (supporting multiple values per key)
-	for key, values := range resp.Header() {
-		for i := range values {
-			w.Header().Add(key, values[i])
-		}
-	}
-
-	// Content-Type
-	if resp.ContentType() != "" {
-		w.Header().Set("Content-Type", resp.ContentType())
-	} else if contentType != "" {
-		w.Header().Set("Content-Type", contentType)
-	}
-
-	// Binary-specific headers
-	if resp.IsBinary() {
-		if resp.Filename() != "" {
-			w.Header().Set("Content-Disposition", `attachment; filename="`+resp.Filename()+`"`)
-		}
-		if resp.Size() > 0 {
-			w.Header().Set("Content-Length", strconv.FormatInt(resp.Size(), 10))
-		}
-	}
 }

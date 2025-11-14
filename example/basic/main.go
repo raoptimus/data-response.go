@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	dataresponse "github.com/raoptimus/data-response.go"
+	dr "github.com/raoptimus/data-response.go"
 	"github.com/raoptimus/data-response.go/formatter"
 	"github.com/raoptimus/data-response.go/middleware"
 	adapterslog "github.com/raoptimus/data-response.go/pkg/logger/adapter/slog"
@@ -23,10 +23,10 @@ func main() {
 		Level: slog.LevelDebug,
 	}))
 
-	factory := dataresponse.New(
-		dataresponse.WithLogger(adapterslog.New(logger)),
-		dataresponse.WithVerbosity(os.Getenv("APP_ENV") != "production"),
-		dataresponse.WithFormatter(formatter.NewJSON()),
+	factory := dr.New(
+		dr.WithLogger(adapterslog.New(logger)),
+		dr.WithVerbosity(os.Getenv("APP_ENV") != "production"),
+		dr.WithFormatter(formatter.NewJSON()),
 	)
 
 	mux := http.NewServeMux()
@@ -38,7 +38,7 @@ func main() {
 		}
 
 		resp := factory.Success(r.Context(), users)
-		dataresponse.Write(w, r, resp, factory)
+		dr.Write(r.Context(), w, resp, factory)
 	})
 
 	mux.HandleFunc("GET /api/users/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -46,13 +46,13 @@ func main() {
 
 		if id == "999" {
 			resp := factory.NotFound(r.Context(), "User not found")
-			dataresponse.Write(w, r, resp, factory)
+			dr.Write(r.Context(), w, resp, factory)
 			return
 		}
 
 		user := User{ID: 1, Name: "Alice", Email: "alice@example.com"}
 		resp := factory.Success(r.Context(), user)
-		dataresponse.Write(w, r, resp, factory)
+		dr.Write(r.Context(), w, resp, factory)
 	})
 
 	mux.HandleFunc("POST /api/users", func(w http.ResponseWriter, r *http.Request) {
@@ -62,28 +62,37 @@ func main() {
 		}
 
 		resp := factory.ValidationError(r.Context(), "invalid request", attributeErrors)
-		dataresponse.Write(w, r, resp, factory)
+		dr.Write(r.Context(), w, resp, factory)
 	})
 
 	// Setup middleware
-	formatterMap := map[string]dataresponse.Formatter{
+	formatterMap := map[string]dr.Formatter{
 		"application/json": formatter.NewJSON(),
 		"application/xml":  formatter.NewXML(),
 	}
 
-	negotiator := middleware.NewContentNegotiator(factory, formatterMap, formatter.NewJSON())
-	recovery := middleware.NewRecover(factory)
+	//recovery := middleware.NewRecover(factory)
 	// todo: it does not work
-	allowJSON := middleware.AllowContentType(factory, dataresponse.MimeTypeJSON.String())
-	compressor := middleware.NewAutoCompressor(middleware.DefaultCompression)
+	//allowJSON := middleware.AllowContentType(factory, dr.MimeTypeJSON.String())
+	//compressor := middleware.NewAutoCompressor(middleware.DefaultCompression)
 
-	handler := compressor.Handler(
-		recovery.Handler(
-			allowJSON(
-				negotiator.Handler(mux),
-			),
-		),
+	handler := dr.Chain(
+		factory,
+		dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
+			user := User{ID: 1, Name: "Alice", Email: "alice@example.com"}
+
+			return factory.Success(r.Context(), user)
+		}),
+		middleware.ContentNegotiator(formatterMap),
 	)
+
+	//handler := compressor.Handler(
+	//	recovery.Handler(
+	//		allowJSON(
+	//			middleware.ContentNegotiator(formatterMap, formatter.NewJSON()),
+	//		),
+	//	),
+	//)
 
 	log.Println("Server starting on :8080")
 	http.ListenAndServe(":8080", handler)
