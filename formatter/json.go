@@ -1,10 +1,18 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package formatter
 
 import (
 	"bytes"
 
 	json "github.com/json-iterator/go"
-	dr "github.com/raoptimus/data-response.go"
+	dr "github.com/raoptimus/data-response.go/v2"
 )
 
 // JSON is a JSON response formatter.

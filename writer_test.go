@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"github.com/raoptimus/data-response.go/formatter"
 	adapterslog "github.com/raoptimus/data-response.go/pkg/logger/adapter/slog"
+	"github.com/raoptimus/data-response.go/v2/formatter"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,7 +22,7 @@ func TestWrite_Success(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/", nil)
 
-	err := Write(w, r, resp, factory)
+	err := Write(r.Context(), w, resp, factory)
 
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -40,7 +40,7 @@ func TestWrite_FormatError(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/", nil)
 
-	err := Write(w, r, resp, factory)
+	err := Write(r.Context(), w, resp, factory)
 
 	assert.Error(t, err)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
@@ -56,7 +56,7 @@ func TestWrite_ErrorResponseFormatError(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/", nil)
 
-	err := Write(w, r, resp, factory)
+	err := Write(r.Context(), w, resp, factory)
 
 	assert.Error(t, err)
 
@@ -91,7 +91,7 @@ func TestWrite_MinimalError_WriteFails(t *testing.T) {
 
 	resp := DataResponse{statusCode: http.StatusOK, data: "test"}
 
-	err := Write(w, r, resp, factory)
+	err := Write(r.Context(), w, resp, factory)
 
 	assert.Error(t, err)
 
@@ -125,7 +125,7 @@ func TestWrite_PartialWrite(t *testing.T) {
 		data:       map[string]string{"key": "value"},
 	}
 
-	err := Write(w, r, resp, factory)
+	err := Write(r.Context(), w, resp, factory)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "partial write")

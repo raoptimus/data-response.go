@@ -1,35 +1,35 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package middleware
 
 import (
 	"fmt"
 	"net/http"
 
-	dataresponse "github.com/raoptimus/data-response.go"
+	dr "github.com/raoptimus/data-response.go/v2"
 )
 
-// Recover middleware recovers from panics and returns DataResponse.
-type Recover struct {
-	factory *dataresponse.Factory
-}
+func Recover() dr.Middleware {
+	return func(next dr.Handler) dr.Handler {
+		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
+			var resp dr.DataResponse
+			defer func() {
+				if err := recover(); err != nil {
+					ctx := r.Context()
+					panicErr := dr.NewError(http.StatusInternalServerError, fmt.Sprintf("panic: %v", err))
+					resp = f.InternalError(ctx, panicErr)
+				}
+			}()
 
-// NewRecover creates a new recover middleware.
-func NewRecover(factory *dataresponse.Factory) *Recover {
-	return &Recover{factory: factory}
-}
+			resp = next.Handle(r, f)
 
-// Handler returns the middleware handler.
-func (rec *Recover) Handler(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if err := recover(); err != nil {
-				ctx := r.Context()
-				panicErr := dataresponse.NewError(http.StatusInternalServerError, fmt.Sprintf("panic: %v", err))
-
-				resp := rec.factory.InternalError(ctx, panicErr)
-				dataresponse.Write(r.Context(), w, resp, rec.factory)
-			}
-		}()
-
-		next.ServeHTTP(w, r)
-	})
+			return resp
+		})
+	}
 }

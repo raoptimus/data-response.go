@@ -1,9 +1,19 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package middleware
 
 import (
 	"net/http"
 	"regexp"
 	"time"
+
+	dr "github.com/raoptimus/data-response.go/v2"
 )
 
 type MetricsData struct {
@@ -13,62 +23,38 @@ type MetricsData struct {
 	Elapsed    time.Duration
 }
 
-//go:generate mockery --name=MetricsService --case underscore --testonly --inpackage
-
+//go:generate mockery
 type MetricsService interface {
 	Responded(data MetricsData)
 }
 
-var patternPlaceholdersRegxp = regexp.MustCompile(`{([a-zA-Z0-9]+).*?}`)
-
-type responseWriter struct {
-	w http.ResponseWriter
-
-	statusCode int
-}
-
-func (w *responseWriter) Header() http.Header {
-	return w.w.Header()
-}
-
-func (w *responseWriter) Write(data []byte) (int, error) {
-	return w.w.Write(data)
-}
-
-func (w *responseWriter) WriteHeader(statusCode int) {
-	w.statusCode = statusCode
-	w.w.WriteHeader(statusCode)
-}
-
 type MatchedRoutePatternFunc func(r *http.Request) string
 
-func Measurement(next http.Handler, serv MetricsService, patternFunc MatchedRoutePatternFunc) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		start := time.Now()
-		ww := &responseWriter{w: w}
-		next.ServeHTTP(ww, req)
+var patternPlaceholdersRegxp = regexp.MustCompile(`{([a-zA-Z0-9]+).*?}`)
 
-		var routePattern string
-		if patternFunc != nil {
-			routePattern = patternFunc(req)
-		}
+func Measurement(serv MetricsService, patternFunc MatchedRoutePatternFunc) dr.Middleware {
+	return func(next dr.Handler) dr.Handler {
+		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
+			start := time.Now()
+			resp := next.Handle(r, f)
 
-		if len(routePattern) > 0 {
-			routePattern = patternPlaceholdersRegxp.
-				ReplaceAllString(routePattern, `$1`)
-		}
+			var routePattern string
+			if patternFunc != nil {
+				routePattern = patternFunc(r)
+			}
 
-		serv.Responded(MetricsData{
-			StatusCode: ww.statusCode,
-			Method:     req.Method,
-			Route:      routePattern,
-			Elapsed:    time.Since(start),
+			if len(routePattern) > 0 {
+				routePattern = patternPlaceholdersRegxp.ReplaceAllString(routePattern, `$1`)
+			}
+
+			serv.Responded(MetricsData{
+				StatusCode: resp.StatusCode(),
+				Method:     r.Method,
+				Route:      routePattern,
+				Elapsed:    time.Since(start),
+			})
+
+			return resp
 		})
-	})
-}
-
-func MeasurementN(serv MetricsService, patternFunc MatchedRoutePatternFunc) func(next http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return Measurement(next, serv, patternFunc)
 	}
 }

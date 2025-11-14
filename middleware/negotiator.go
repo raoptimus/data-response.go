@@ -1,13 +1,21 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package middleware
 
 import (
 	"net/http"
 	"strings"
 
-	dr "github.com/raoptimus/data-response.go"
+	dr "github.com/raoptimus/data-response.go/v2"
 )
 
-func ContentNegotiator(formatters map[string]dr.Formatter) func(next dr.Handler) dr.Handler {
+func ContentNegotiator(formatters map[string]dr.Formatter) dr.Middleware {
 	return func(next dr.Handler) dr.Handler {
 		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
 			accept := r.Header.Get("Accept")

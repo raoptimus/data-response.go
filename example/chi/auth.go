@@ -4,16 +4,16 @@ import (
 	"net/http"
 	"strings"
 
-	dataresponse "github.com/raoptimus/data-response.go"
+	dr "github.com/raoptimus/data-response.go/v2"
 )
 
 type Auth struct {
-	factory      *dataresponse.Factory
+	factory *dr.Factory
 	tokenChecker func(token string) bool
 }
 
 // NewAuth creates a new auth middleware.
-func NewAuth(factory *dataresponse.Factory, tokenChecker func(token string) bool) *Auth {
+func NewAuth(factory *dr.Factory, tokenChecker func(token string) bool) *Auth {
 	return &Auth{
 		factory:      factory,
 		tokenChecker: tokenChecker,
@@ -21,8 +21,8 @@ func NewAuth(factory *dataresponse.Factory, tokenChecker func(token string) bool
 }
 
 // ServeHTTP implements Middleware interface.
-func (a *Auth) ServeHTTP(r *http.Request, next dataresponse.Handler) dataresponse.DataResponse {
-	authHeader := r.Header.Get(dataresponse.HeaderAuthorization)
+func (a *Auth) ServeHTTP(r *http.Request, next dr.Handler) dr.DataResponse {
+	authHeader := r.Header.Get(dr.HeaderAuthorization)
 	if authHeader == "" {
 		return a.factory.Unauthorized(r.Context(), "Authorization required")
 	}

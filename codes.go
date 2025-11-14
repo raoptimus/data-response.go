@@ -1,3 +1,11 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package dataresponse
 
 import "net/http"
@@ -122,5 +130,6 @@ func CodeFromStatus(status int) HTTPCode {
 	if code, ok := HTTPCodesMapping[status]; ok {
 		return code
 	}
+
 	return ""
 }

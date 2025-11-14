@@ -1,3 +1,11 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package dataresponse
 
 import (
@@ -90,7 +98,21 @@ func (r DataResponse) WithHeader(key, value string) DataResponse {
 	if r.header == nil {
 		r.header = make(http.Header)
 	}
-	r.header.Add(key, value)
+	if r.HasHeader(key) {
+		r.header.Set(key, value)
+	} else {
+		r.header.Add(key, value)
+	}
+
+	return r
+}
+
+func (r DataResponse) WithoutHeader(key string) DataResponse {
+	if r.header == nil {
+		return r
+	}
+
+	r.header.Del(key)
 
 	return r
 }

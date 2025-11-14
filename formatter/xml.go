@@ -1,10 +1,18 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package formatter
 
 import (
 	"bytes"
 	"encoding/xml"
 
-	dr "github.com/raoptimus/data-response.go"
+	dr "github.com/raoptimus/data-response.go/v2"
 )
 
 // XML is an XML response formatter.

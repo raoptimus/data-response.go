@@ -1,3 +1,11 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package formatter
 
 import (
@@ -5,7 +13,7 @@ import (
 	"html/template"
 
 	"github.com/pkg/errors"
-	dr "github.com/raoptimus/data-response.go"
+	dr "github.com/raoptimus/data-response.go/v2"
 )
 
 var ErrDataIsNotStringable = errors.New("data is not a string-able")

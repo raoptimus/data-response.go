@@ -1,15 +1,24 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package main
 
 import (
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
 
-	dr "github.com/raoptimus/data-response.go"
-	"github.com/raoptimus/data-response.go/formatter"
-	"github.com/raoptimus/data-response.go/middleware"
 	adapterslog "github.com/raoptimus/data-response.go/pkg/logger/adapter/slog"
+	dr "github.com/raoptimus/data-response.go/v2"
+	"github.com/raoptimus/data-response.go/v2/formatter"
+	"github.com/raoptimus/data-response.go/v2/middleware"
 )
 
 type User struct {
@@ -29,41 +38,7 @@ func main() {
 		dr.WithFormatter(formatter.NewJSON()),
 	)
 
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("GET /api/users", func(w http.ResponseWriter, r *http.Request) {
-		users := []User{
-			{ID: 1, Name: "Alice", Email: "alice@example.com"},
-			{ID: 2, Name: "Bob", Email: "bob@example.com"},
-		}
-
-		resp := factory.Success(r.Context(), users)
-		dr.Write(r.Context(), w, resp, factory)
-	})
-
-	mux.HandleFunc("GET /api/users/{id}", func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
-
-		if id == "999" {
-			resp := factory.NotFound(r.Context(), "User not found")
-			dr.Write(r.Context(), w, resp, factory)
-			return
-		}
-
-		user := User{ID: 1, Name: "Alice", Email: "alice@example.com"}
-		resp := factory.Success(r.Context(), user)
-		dr.Write(r.Context(), w, resp, factory)
-	})
-
-	mux.HandleFunc("POST /api/users", func(w http.ResponseWriter, r *http.Request) {
-		attributeErrors := map[string][]string{
-			"email": {"Email is required"},
-			"name":  {"Name must be at least 3 characters"},
-		}
-
-		resp := factory.ValidationError(r.Context(), "invalid request", attributeErrors)
-		dr.Write(r.Context(), w, resp, factory)
-	})
+	mux := dr.NewServeMux(factory)
 
 	// Setup middleware
 	formatterMap := map[string]dr.Formatter{
@@ -71,29 +46,60 @@ func main() {
 		"application/xml":  formatter.NewXML(),
 	}
 
+	mux.WithMiddleware(
+		middleware.ContentNegotiator(formatterMap),
+		middleware.Logging(),
+	)
+
+	mux.HandleFunc("/", func(r *http.Request, f *dr.Factory) dr.DataResponse {
+		return f.NotFound(r.Context(), "resource not found")
+	})
+
+	mux.HandleFunc("GET /api/users", func(r *http.Request, f *dr.Factory) dr.DataResponse {
+		users := []User{
+			{ID: 1, Name: "Alice", Email: "alice@example.com"},
+			{ID: 2, Name: "Bob", Email: "bob@example.com"},
+		}
+
+		return f.Success(r.Context(), users)
+	})
+
+	mux.HandleFunc("GET /api/users/{id}", func(r *http.Request, f *dr.Factory) dr.DataResponse {
+		id := r.PathValue("id")
+		if id == "999" {
+			return f.NotFound(r.Context(), "User not found")
+		}
+		user := User{ID: 1, Name: "Alice", Email: "alice@example.com"}
+
+		return f.Success(r.Context(), user)
+	})
+
+	mux.HandleFunc("POST /api/users", func(r *http.Request, f *dr.Factory) dr.DataResponse {
+		attributeErrors := map[string][]string{
+			"email": {"Email is required"},
+			"name":  {"Name must be at least 3 characters"},
+		}
+
+		return f.ValidationError(r.Context(), "invalid request", attributeErrors)
+	})
+
+	fmt.Println(formatterMap)
 	//recovery := middleware.NewRecover(factory)
 	// todo: it does not work
 	//allowJSON := middleware.AllowContentType(factory, dr.MimeTypeJSON.String())
 	//compressor := middleware.NewAutoCompressor(middleware.DefaultCompression)
 
-	handler := dr.Chain(
-		factory,
-		dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
-			user := User{ID: 1, Name: "Alice", Email: "alice@example.com"}
-
-			return factory.Success(r.Context(), user)
-		}),
-		middleware.ContentNegotiator(formatterMap),
-	)
-
-	//handler := compressor.Handler(
-	//	recovery.Handler(
-	//		allowJSON(
-	//			middleware.ContentNegotiator(formatterMap, formatter.NewJSON()),
-	//		),
-	//	),
+	//handler := dr.Chain(
+	//	factory,
+	//	dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
+	//		user := User{ID: 1, Name: "Alice", Email: "alice@example.com"}
+	//
+	//		return f.Success(r.Context(), user)
+	//	}),
+	//	middleware.ContentNegotiator(formatterMap),
 	//)
 
+
 	log.Println("Server starting on :8080")
-	http.ListenAndServe(":8080", handler)
+	http.ListenAndServe(":8080", mux)
 }

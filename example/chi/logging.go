@@ -4,23 +4,23 @@ import (
 	"net/http"
 	"time"
 
-	dataresponse "github.com/raoptimus/data-response.go"
 	"github.com/raoptimus/data-response.go/pkg/logger"
+	dr "github.com/raoptimus/data-response.go/v2"
 )
 
 // Logging middleware logs requests and responses.
 type Logging struct {
 	logger  logger.Logger
-	factory *dataresponse.Factory
+	factory *dr.Factory
 }
 
 // NewLogging creates a new Logging middleware.
-func NewLogging(logger logger.Logger, factory *dataresponse.Factory) *Logging {
+func NewLogging(logger logger.Logger, factory *dr.Factory) *Logging {
 	return &Logging{logger: logger, factory: factory}
 }
 
 // ServeHTTP implements Middleware interface.
-func (l *Logging) ServeHTTP(r *http.Request, next dataresponse.Handler) dataresponse.DataResponse {
+func (l *Logging) ServeHTTP(r *http.Request, next dr.Handler) dr.DataResponse {
 	start := time.Now()
 	// Log request
 	l.logger.Info(

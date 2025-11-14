@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	chiorigin "github.com/go-chi/chi/v5"
-	dr "github.com/raoptimus/data-response.go"
+	dr "github.com/raoptimus/data-response.go/v2"
 )
 
 // ChiMiddleware is a chi-compatible middleware type.

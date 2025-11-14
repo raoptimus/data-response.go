@@ -1,10 +1,18 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package dataresponse
 
 import "net/http"
 
 // ChainHandler wraps a middleware and next handler.
 type ChainHandler struct {
-	middleware func(h Handler) Handler
+	middleware Middleware
 	next       Handler
 }
 
@@ -14,7 +22,7 @@ func (c *ChainHandler) Handle(r *http.Request, f *Factory) DataResponse {
 }
 
 // Chain creates a handler chain with multiple middlewares.
-func Chain(f *Factory, h Handler, middlewares ...func(h Handler) Handler) http.Handler {
+func Chain(f *Factory, h Handler, middlewares ...Middleware) http.Handler {
 	for i := len(middlewares) - 1; i >= 0; i-- {
 		h = &ChainHandler{
 			middleware: middlewares[i],

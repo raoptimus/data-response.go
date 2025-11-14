@@ -1,29 +1,33 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package middleware
 
 import (
 	"net/http"
-	"slices"
 	"strings"
 
-	dataresponse "github.com/raoptimus/data-response.go"
+	dr "github.com/raoptimus/data-response.go/v2"
 )
 
-// AllowContentType middleware checks if request Content-Type is allowed.
-func AllowContentType(factory *dataresponse.Factory, contentTypes ...string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			contentType := strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type")))
+func CheckContentType() dr.Middleware {
+	return func(next dr.Handler) dr.Handler {
+		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
+			contentType := r.Header.Get("Content-Type")
 			if i := strings.Index(contentType, ";"); i > -1 {
 				contentType = contentType[0:i]
 			}
 
-			if !slices.Contains(contentTypes, contentType) {
-				resp := factory.Error(r.Context(), http.StatusUnsupportedMediaType, "Unsupported Media Type")
-				dataresponse.Write(r.Context(), w, resp, factory)
-				return
+			if contentType != f.Formatter().ContentType() {
+				return f.Error(r.Context(), http.StatusUnsupportedMediaType, "Unsupported Media Type")
 			}
 
-			next.ServeHTTP(w, r)
+			return next.Handle(r, f)
 		})
 	}
 }

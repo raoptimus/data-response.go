@@ -1,3 +1,11 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package dataresponse
 
 // MimeType represents a media type (MIME type) for HTTP Content-Type header.
@@ -128,6 +136,6 @@ func MimeTypeFromExtension(ext string) MimeType {
 	if mimeType, ok := MimeTypeMapping[ext]; ok {
 		return mimeType
 	}
-	
+
 	return MimeTypeOctetStream
 }

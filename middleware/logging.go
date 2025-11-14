@@ -1,23 +1,62 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package middleware
 
 import (
-	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
-	"github.com/raoptimus/data-response.go/pkg/logger"
+	dr "github.com/raoptimus/data-response.go/v2"
 )
 
-func Logging(next http.Handler, logger logger.Logger) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		start := time.Now()
-		next.ServeHTTP(w, req)
-		logger.Info(req.Context(), fmt.Sprintf("%s %s %s\n", req.Method, req.RequestURI, time.Since(start)))
-	})
-}
+func Logging() dr.Middleware {
+	return func(next dr.Handler) dr.Handler {
+		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
+			start := time.Now()
+			resp := next.Handle(r, f)
 
-func LoggingN(logger logger.Logger) func(next http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return Logging(next, logger)
+			var sb strings.Builder
+			sb.WriteString(r.RemoteAddr)
+			sb.WriteString(" ")
+			sb.WriteString("-") // identity id from context
+			sb.WriteString(" ")
+			sb.WriteString("[")
+			sb.WriteString(start.Format(time.RFC3339))
+			sb.WriteString("]")
+			sb.WriteString(" ")
+			sb.WriteString("\"")
+			sb.WriteString(r.Method)
+			sb.WriteString(" ")
+			sb.WriteString(r.RequestURI)
+			sb.WriteString(" ")
+			sb.WriteString(r.Proto)
+			sb.WriteString("\"")
+			sb.WriteString(" ")
+			sb.WriteString(strconv.Itoa(resp.StatusCode()))
+			sb.WriteString(" ")
+			sb.WriteString("-") // resp size
+			sb.WriteString(" ")
+			sb.WriteString("\"")
+			sb.WriteString(r.Referer())
+			sb.WriteString("\"")
+			sb.WriteString(" ")
+			sb.WriteString("\"")
+			sb.WriteString(r.UserAgent())
+			sb.WriteString("\"")
+			sb.WriteString(" ")
+			sb.WriteString(time.Since(start).String())
+
+			f.Logger().Info(r.Context(), sb.String())
+
+			return resp
+		})
 	}
 }

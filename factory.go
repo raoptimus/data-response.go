@@ -1,3 +1,11 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package dataresponse
 
 import (
@@ -9,23 +17,6 @@ import (
 	"strconv"
 
 	"github.com/raoptimus/data-response.go/pkg/logger"
-)
-
-type (
-	TemplateError struct {
-		Pointer string `json:"pointer,omitempty"` // Путь до свойства с проблемой
-		NodeID  string `json:"nodeId,omitempty"`  // ID узла(uuid) в котором возникла ошибка
-		PortID  string `json:"portId,omitempty"`  // ID порта узла(uuid) в котором возникла ошибка
-		Detail  string `json:"detail"`            // Человеко-читаемое описание ошибки
-	}
-	TemplateErrors []TemplateError
-	Template       struct {
-		Code    HTTPCode       `json:"code,omitempty"`
-		Status  string         `json:"status,omitempty"`
-		Title   string         `json:"title,omitempty"`
-		Details any            `json:"details,omitempty"`
-		Errors  TemplateErrors `json:"errors,omitempty"`
-	}
 )
 
 // Factory creates standardized HTTP responses.
@@ -112,9 +103,13 @@ func New(opts ...Option) *Factory {
 	return f
 }
 
+func (f *Factory) Logger() logger.Logger {
+	return f.logger
+}
+
 // Success creates a 200 OK response.
 func (f *Factory) Success(ctx context.Context, data any) DataResponse {
-	if f.debugMode && f.logger != nil {
+	if f.debugMode {
 		f.logger.Debug(ctx, "success response")
 	}
 
@@ -137,7 +132,7 @@ func (f *Factory) Created(ctx context.Context, data any, location string) DataRe
 		resp = resp.WithHeader("Location", location)
 	}
 
-	if f.debugMode && f.logger != nil {
+	if f.debugMode {
 		f.logger.Debug(ctx, "created response", "location", location)
 	}
 
@@ -146,7 +141,7 @@ func (f *Factory) Created(ctx context.Context, data any, location string) DataRe
 
 // Accepted creates a 202 Accepted response.
 func (f *Factory) Accepted(ctx context.Context, data any) DataResponse {
-	if f.debugMode && f.logger != nil {
+	if f.debugMode {
 		f.logger.Debug(ctx, "accepted response")
 	}
 
@@ -159,7 +154,7 @@ func (f *Factory) Accepted(ctx context.Context, data any) DataResponse {
 
 // NoContent creates a 204 No Content response.
 func (f *Factory) NoContent(ctx context.Context) DataResponse {
-	if f.debugMode && f.logger != nil {
+	if f.debugMode {
 		f.logger.Debug(ctx, "no content response")
 	}
 
@@ -171,8 +166,8 @@ func (f *Factory) NoContent(ctx context.Context) DataResponse {
 
 // Error creates an error response with custom data builder.
 func (f *Factory) Error(ctx context.Context, status int, message string) DataResponse {
-	if f.logger != nil {
-		f.logger.Info(ctx, "error response", "status", status, "message", message)
+	if f.debugMode {
+		f.logger.Debug(ctx, "error response", "status", status, "message", message)
 	}
 
 	data := f.errorBuilder(ctx, status, message, nil)
@@ -186,14 +181,12 @@ func (f *Factory) Error(ctx context.Context, status int, message string) DataRes
 
 // InternalError creates a 500 Internal Server Error response.
 func (f *Factory) InternalError(ctx context.Context, err error) DataResponse {
-	if f.logger != nil {
-		f.logger.Error(ctx, "internal server error", "error", err.Error())
-	}
+	f.logger.Error(ctx, "internal server error", "error", err.Error())
 
 	message := "Internal server error"
 	var details any
 
-	if f.verbosity && err != nil {
+	if f.verbosity {
 		errData := map[string]string{
 			"error": err.Error(),
 		}
@@ -222,6 +215,7 @@ func (f *Factory) BadRequest(ctx context.Context, message string) DataResponse {
 	if message == "" {
 		message = "Bad request"
 	}
+
 	return f.Error(ctx, http.StatusBadRequest, message)
 }
 
@@ -239,6 +233,7 @@ func (f *Factory) Forbidden(ctx context.Context, message string) DataResponse {
 	if message == "" {
 		message = "Forbidden"
 	}
+
 	return f.Error(ctx, http.StatusForbidden, message)
 }
 
@@ -247,6 +242,7 @@ func (f *Factory) NotFound(ctx context.Context, message string) DataResponse {
 	if message == "" {
 		message = "Not found"
 	}
+
 	return f.Error(ctx, http.StatusNotFound, message)
 }
 
@@ -255,12 +251,13 @@ func (f *Factory) Conflict(ctx context.Context, message string) DataResponse {
 	if message == "" {
 		message = "Conflict"
 	}
+
 	return f.Error(ctx, http.StatusConflict, message)
 }
 
 // ValidationError creates a 422 Unprocessable Entity response.
 func (f *Factory) ValidationError(ctx context.Context, message string, attributeErrors map[string][]string) DataResponse {
-	if f.logger != nil {
+	if f.debugMode {
 		f.logger.Info(ctx, "validation error", "errors_count", len(attributeErrors))
 	}
 
@@ -279,7 +276,7 @@ func (f *Factory) ValidationError(ctx context.Context, message string, attribute
 
 // Binary creates a binary file response from io.Reader.
 func (f *Factory) Binary(ctx context.Context, reader io.Reader, filename string, size int64) DataResponse {
-	if f.debugMode && f.logger != nil {
+	if f.debugMode {
 		f.logger.Debug(ctx, "binary response", "filename", filename, "size", size)
 	}
 
@@ -305,7 +302,7 @@ func (f *Factory) File(ctx context.Context, filepath string) DataResponse {
 		return f.InternalError(ctx, WrapError(http.StatusInternalServerError, err, "failed to stat file"))
 	}
 
-	if f.debugMode && f.logger != nil {
+	if f.debugMode {
 		f.logger.Debug(ctx, "file response", "path", filepath, "size", stat.Size())
 	}
 
