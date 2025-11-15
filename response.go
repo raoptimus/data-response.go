@@ -9,8 +9,13 @@
 package dataresponse
 
 import (
+	"bufio"
+	"bytes"
 	"io"
 	"net/http"
+
+	"github.com/pkg/errors"
+	"github.com/raoptimus/data-response.go/v2/internal/conv"
 )
 
 // DataResponse represents an HTTP response with data payload.
@@ -18,7 +23,8 @@ type DataResponse struct {
 	statusCode int
 	data       any
 	header     http.Header
-	binary     io.Reader
+	stream   io.Reader
+	isBinary bool
 	filename   string
 	size       int64
 	formatter  Formatter
@@ -29,9 +35,46 @@ func (r DataResponse) StatusCode() int {
 	return r.statusCode
 }
 
+func (r DataResponse) WriteHeader(statusCode int) {
+	r.statusCode = statusCode
+}
+
 // Data returns the response data payload.
 func (r DataResponse) Data() any {
 	return r.data
+}
+
+func (r DataResponse) Body() (int64, io.Reader, error) {
+	if r.stream != nil {
+		return r.size, r.stream, nil
+	}
+
+	if r.formatter != nil {
+		formattedResp, err := r.formatter.Format(r)
+		if err != nil {
+			return 0, nil, err
+		}
+		r.WithContentType(formattedResp.ContentType)
+
+		return formattedResp.StreamSize, formattedResp.Stream, nil
+	}
+
+	data := r.Data()
+	dataBytes, err := conv.DataToString(data)
+	if err != nil {
+		return 0, nil, err
+	}
+	var buf bytes.Buffer
+	buf.Write(dataBytes)
+
+	return int64(buf.Len()), bufio.NewReader(&buf), nil
+}
+
+func (r DataResponse) WithStream(stream io.Reader, size int64) DataResponse {
+	r.stream = stream
+	r.size = size
+
+	return r
 }
 
 // Header returns the HTTP headers.
@@ -56,7 +99,7 @@ func (r DataResponse) ContentType() string {
 
 // Binary returns the binary data reader.
 func (r DataResponse) Binary() io.Reader {
-	return r.binary
+	return r.stream
 }
 
 // Filename returns the filename for binary responses.
@@ -71,12 +114,12 @@ func (r DataResponse) Size() int64 {
 
 // IsBinary returns true if this is a binary response.
 func (r DataResponse) IsBinary() bool {
-	return r.binary != nil
+	return r.isBinary && r.stream != nil
 }
 
 // HasData returns true if response has data payload.
 func (r DataResponse) HasData() bool {
-	return r.data != nil || r.binary != nil
+	return r.data != nil || r.stream != nil
 }
 
 // HasHeader returns true if header key exists.
@@ -84,12 +127,12 @@ func (r DataResponse) HasHeader(key string) bool {
 	return r.header.Get(key) != ""
 }
 
-func (r DataResponse) Formatter() (_ Formatter, ok bool) {
+func (r DataResponse) Formatter() (Formatter, error) {
 	if r.formatter != nil {
-		return r.formatter, true
+		return r.formatter, nil
 	}
 
-	return nil, false
+	return nil, errors.WithStack(ErrFormatterMustBeSet)
 }
 
 // WithHeader returns a copy of response with an additional header.
@@ -164,11 +207,10 @@ func (r DataResponse) WithCORS(origin string, methods string, headers string) Da
 
 // WithSecurityHeaders returns a copy of response with common security headers.
 func (r DataResponse) WithSecurityHeaders() DataResponse {
-	r = r.WithHeader(HeaderXContentTypeOptions, ContentTypeOptionsNoSniff)
-	r = r.WithHeader(HeaderXFrameOptions, FrameOptionsDeny)
-	r = r.WithHeader(HeaderReferrerPolicy, ReferrerPolicyStrictOriginWhenCrossOrigin)
-
-	return r
+	return r.
+		WithHeader(HeaderXContentTypeOptions, ContentTypeOptionsNoSniff).
+		WithHeader(HeaderXFrameOptions, FrameOptionsDeny).
+		WithHeader(HeaderReferrerPolicy, ReferrerPolicyStrictOriginWhenCrossOrigin)
 }
 
 func (r DataResponse) WithFormatter(formatter Formatter) DataResponse {

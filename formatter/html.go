@@ -9,14 +9,13 @@
 package formatter
 
 import (
+	"bufio"
 	"bytes"
 	"html/template"
 
-	"github.com/pkg/errors"
 	dr "github.com/raoptimus/data-response.go/v2"
+	"github.com/raoptimus/data-response.go/v2/internal/conv"
 )
-
-var ErrDataIsNotStringable = errors.New("data is not a string-able")
 
 // HTML is an HTML response formatter.
 type HTML struct {
@@ -57,12 +56,13 @@ func (f *HTML) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
 
 	return dr.FormattedResponse{
 		ContentType: f.ContentType(),
-		Body:        buf.Bytes(),
+		Stream:     bufio.NewReader(&buf),
+		StreamSize: int64(buf.Len()),
 	}, nil
 }
 
 func (f *HTML) defaultTemplate(buf *bytes.Buffer, resp dr.DataResponse) error {
-	dataBytes, err := f.dataToString(resp.Data())
+	dataBytes, err := conv.DataToString(resp.Data())
 	if err != nil {
 		return err
 	}
@@ -74,16 +74,6 @@ func (f *HTML) defaultTemplate(buf *bytes.Buffer, resp dr.DataResponse) error {
 
 // ContentType returns text/html.
 func (f *HTML) ContentType() string {
-	return dr.MimeTypeHTML.String()
+	return dr.ContentTypeHTML
 }
 
-func (f *HTML) dataToString(data any) ([]byte, error) {
-	switch v := data.(type) {
-	case string:
-		return []byte(v), nil
-	case []byte:
-		return v, nil
-	default:
-		return nil, errors.WithStack(ErrDataIsNotStringable)
-	}
-}

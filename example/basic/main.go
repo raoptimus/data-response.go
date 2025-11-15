@@ -9,7 +9,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -47,6 +46,7 @@ func main() {
 	}
 
 	mux.WithMiddleware(
+		middleware.DefaultCompression(),
 		middleware.ContentNegotiator(formatterMap),
 		middleware.Logging(),
 	)
@@ -82,12 +82,6 @@ func main() {
 
 		return f.ValidationError(r.Context(), "invalid request", attributeErrors)
 	})
-
-	fmt.Println(formatterMap)
-	//recovery := middleware.NewRecover(factory)
-	// todo: it does not work
-	//allowJSON := middleware.AllowContentType(factory, dr.MimeTypeJSON.String())
-	//compressor := middleware.NewAutoCompressor(middleware.DefaultCompression)
 
 	//handler := dr.Chain(
 	//	factory,

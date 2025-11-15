@@ -9,6 +9,7 @@
 package formatter
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/xml"
 
@@ -41,9 +42,13 @@ func (f *XML) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
 	data := resp.Data()
 
 	if data == nil {
+		var buf bytes.Buffer
+		buf.Write([]byte(""))
+
 		return dr.FormattedResponse{
 			ContentType: f.ContentType(),
-			Body:        []byte(""),
+			Stream:     bufio.NewReader(&buf),
+			StreamSize: int64(buf.Len()),
 		}, nil
 	}
 
@@ -67,11 +72,12 @@ func (f *XML) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
 
 	return dr.FormattedResponse{
 		ContentType: f.ContentType(),
-		Body:        buf.Bytes(),
+		Stream:     bufio.NewReader(&buf),
+		StreamSize: int64(buf.Len()),
 	}, nil
 }
 
 // ContentType returns application/xml.
 func (f *XML) ContentType() string {
-	return dr.MimeTypeXML.String()
+	return dr.ContentTypeXML
 }

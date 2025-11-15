@@ -33,8 +33,24 @@ func WrapHandler(h Handler, f *Factory) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rw := &responseRecorder{ResponseWriter: w}
 		resp := h.Handle(r, f)
-		if err := Write(r.Context(), rw, resp, f); err != nil {
-			f.logger.Error(r.Context(), "failed to write response", "error", err.Error())
+		// todo not finally context
+		if err := Write(rw, resp); err != nil {
+			if rw.Written() { // already written
+				f.logger.Error(r.Context(), "failed to write response", "error", err.Error())
+				return
+			}
+
+			errResp := f.InternalError(r.Context(), err)
+			if err := Write(rw, errResp); err != nil {
+				f.logger.Error(r.Context(), "failed to write error response", "error", err.Error())
+
+				// last chance
+				if !rw.Written() {
+					w.Header().Set(HeaderContentType, MimeTypePlainText.String())
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte("Internal Server Error"))
+				}
+			}
 		}
 	})
 }
@@ -60,17 +76,19 @@ func NewServeMux(factory *Factory) *ServeMux {
 }
 
 func (s *ServeMux) Handle(pattern string, handler Handler) {
-	s.ServeMux.Handle(pattern, Chain(s.factory, handler, s.middlewares...))
-	//s.ServeMux.Handle(pattern, WrapHandler(handler, s.factory))
+	chained := Chain(handler, s.middlewares...)
+	s.ServeMux.Handle(pattern, WrapHandler(chained, s.factory))
 }
 
 func (s *ServeMux) HandleFunc(pattern string, handler HandlerFunc) {
-	s.ServeMux.HandleFunc(pattern, Chain(s.factory, handler, s.middlewares...).ServeHTTP)
-	//s.ServeMux.HandleFunc(pattern, WrapHandlerFunc(handler, s.factory))
+	chained := Chain(handler, s.middlewares...)
+	s.ServeMux.HandleFunc(pattern, WrapHandlerFunc(chained.Handle, s.factory))
 }
 
-func (s *ServeMux) WithMiddleware(m ...Middleware) {
+func (s *ServeMux) WithMiddleware(m ...Middleware) *ServeMux {
 	s.middlewares = append(s.middlewares, m...)
+
+	return s
 }
 
 // responseRecorder captures response data.
@@ -82,14 +100,24 @@ type responseRecorder struct {
 
 // WriteHeader captures the status code.
 func (rr *responseRecorder) WriteHeader(statusCode int) {
+	if rr.written {
+		return
+	}
+
 	rr.statusCode = statusCode
-	rr.written = true
 	rr.ResponseWriter.WriteHeader(statusCode)
+	rr.written = true
 }
 
 // Write marks response as written.
 func (rr *responseRecorder) Write(b []byte) (int, error) {
-	rr.written = true
+	if !rr.written {
+		if rr.statusCode == 0 {
+			rr.statusCode = http.StatusOK
+		}
+		rr.WriteHeader(rr.statusCode)
+	}
+
 	return rr.ResponseWriter.Write(b)
 }
 

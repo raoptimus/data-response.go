@@ -1,8 +1,9 @@
 module github.com/raoptimus/data-response.go/v2
 
-go 1.25
+go 1.25.4
 
 require (
+	github.com/andybalholm/brotli v1.2.0
 	github.com/json-iterator/go v1.1.12
 	github.com/pkg/errors v0.9.1
 	github.com/raoptimus/data-response.go/pkg/logger v0.0.0

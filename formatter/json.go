@@ -9,6 +9,7 @@
 package formatter
 
 import (
+	"bufio"
 	"bytes"
 
 	json "github.com/json-iterator/go"
@@ -40,9 +41,13 @@ func (f *JSON) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
 	data := resp.Data()
 
 	if data == nil {
+		var buf bytes.Buffer
+		buf.Write([]byte("null"))
+
 		return dr.FormattedResponse{
 			ContentType: f.ContentType(),
-			Body:        []byte("null"),
+			Stream:     bufio.NewReader(&buf),
+			StreamSize: int64(buf.Len()),
 		}, nil
 	}
 
@@ -59,11 +64,12 @@ func (f *JSON) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
 
 	return dr.FormattedResponse{
 		ContentType: f.ContentType(),
-		Body:        buf.Bytes(),
+		Stream:     bufio.NewReader(&buf),
+		StreamSize: int64(buf.Len()),
 	}, nil
 }
 
 // ContentType returns application/json.
 func (f *JSON) ContentType() string {
-	return dr.MimeTypeJSON.String()
+	return dr.ContentTypeJSON
 }

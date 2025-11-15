@@ -14,6 +14,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+var ErrFormatterMustBeSet = errors.New("formatter must be set to response")
+
 // Error wraps an error with stack trace preservation.
 // It provides additional context and preserves the call stack for debugging.
 type Error struct {

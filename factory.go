@@ -114,6 +114,7 @@ func (f *Factory) Success(ctx context.Context, data any) DataResponse {
 	}
 
 	return DataResponse{
+		formatter: f.formatter,
 		statusCode: http.StatusOK,
 		data:       data,
 		header:     make(http.Header),
@@ -123,6 +124,7 @@ func (f *Factory) Success(ctx context.Context, data any) DataResponse {
 // Created creates a 201 Created response.
 func (f *Factory) Created(ctx context.Context, data any, location string) DataResponse {
 	resp := DataResponse{
+		formatter: f.formatter,
 		statusCode: http.StatusCreated,
 		data:       data,
 		header:     make(http.Header),
@@ -146,6 +148,7 @@ func (f *Factory) Accepted(ctx context.Context, data any) DataResponse {
 	}
 
 	return DataResponse{
+		formatter: f.formatter,
 		statusCode: http.StatusAccepted,
 		data:       data,
 		header:     make(http.Header),
@@ -159,6 +162,7 @@ func (f *Factory) NoContent(ctx context.Context) DataResponse {
 	}
 
 	return DataResponse{
+		formatter: f.formatter,
 		statusCode: http.StatusNoContent,
 		header:     make(http.Header),
 	}
@@ -173,6 +177,7 @@ func (f *Factory) Error(ctx context.Context, status int, message string) DataRes
 	data := f.errorBuilder(ctx, status, message, nil)
 
 	return DataResponse{
+		formatter: f.formatter,
 		statusCode: status,
 		data:       data,
 		header:     make(http.Header),
@@ -204,6 +209,7 @@ func (f *Factory) InternalError(ctx context.Context, err error) DataResponse {
 	data := f.errorBuilder(ctx, http.StatusInternalServerError, message, details)
 
 	return DataResponse{
+		formatter: f.formatter,
 		statusCode: http.StatusInternalServerError,
 		data:       data,
 		header:     make(http.Header),
@@ -268,6 +274,7 @@ func (f *Factory) ValidationError(ctx context.Context, message string, attribute
 	data := f.validationBuilder(ctx, message, attributeErrors)
 
 	return DataResponse{
+		formatter: f.formatter,
 		statusCode: http.StatusUnprocessableEntity,
 		data:       data,
 		header:     make(http.Header),
@@ -281,8 +288,10 @@ func (f *Factory) Binary(ctx context.Context, reader io.Reader, filename string,
 	}
 
 	return DataResponse{
+		formatter: f.formatter,
 		statusCode: http.StatusOK,
-		binary:     reader,
+		stream:    reader,
+		isBinary:  true,
 		filename:   filename,
 		size:       size,
 		header:     make(http.Header),
@@ -307,8 +316,10 @@ func (f *Factory) File(ctx context.Context, filepath string) DataResponse {
 	}
 
 	return DataResponse{
+		formatter: f.formatter,
 		statusCode: http.StatusOK,
-		binary:     file,
+		stream:    file,
+		isBinary:  true,
 		filename:   stat.Name(),
 		size:       stat.Size(),
 		header:     make(http.Header),

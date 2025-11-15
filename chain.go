@@ -22,7 +22,7 @@ func (c *ChainHandler) Handle(r *http.Request, f *Factory) DataResponse {
 }
 
 // Chain creates a handler chain with multiple middlewares.
-func Chain(f *Factory, h Handler, middlewares ...Middleware) http.Handler {
+func Chain(h Handler, middlewares ...Middleware) Handler {
 	for i := len(middlewares) - 1; i >= 0; i-- {
 		h = &ChainHandler{
 			middleware: middlewares[i],
@@ -30,5 +30,5 @@ func Chain(f *Factory, h Handler, middlewares ...Middleware) http.Handler {
 		}
 	}
 
-	return WrapHandler(h, f)
+	return h
 }

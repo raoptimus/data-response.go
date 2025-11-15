@@ -36,4 +36,5 @@ test: ## Run unit tests
 
 lint: ## Run linter
 	@[ -d ${REPORT_DIR} ] || mkdir -p ${REPORT_DIR}
-	golangci-lint run --timeout 5m --out-format code-climate | tee ${REPORT_DIR}/qa.json | jq -r '.[] | "\(.location.path):\(.location.lines.begin) \(.description)"'
+	@golangci-lint run -j 10 --output.code-climate.path ${REPORT_DIR}/qa.json --issues-exit-code 0 || true ; \
+ 		cat ${REPORT_DIR}/qa.json | jq -r '.[] | "\(.location.path):\(.location.lines.begin) \(.description)"'

@@ -26,36 +26,31 @@ func NewBinary() *Binary {
 
 // Format prepares binary data for writing.
 func (f *Binary) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
-	if !resp.IsBinary() {
-		return dr.FormattedResponse{}, dr.NewError(500, "response is not binary")
-	}
-
 	contentType := resp.ContentType()
 	if contentType == "" {
 		ext := filepath.Ext(resp.Filename())
 		contentType = dr.MimeTypeFromExtension(ext).String()
 	}
 
+	size, body, err := resp.Body()
+	if err != nil {
+		return dr.FormattedResponse{}, err
+	}
+
 	// Return stream for writer.go
 	return dr.FormattedResponse{
 		ContentType: contentType,
-		Stream:      resp.Binary(),
-		StreamSize:  resp.Size(),
+		Stream:     body,
+		StreamSize: size,
 	}, nil
 }
 
 // ContentType returns application/octet-stream.
 func (f *Binary) ContentType() string {
-	return dr.MimeTypeOctetStream.String()
+	return dr.ContentTypeOctetStream
 }
 
 // CanFormatBinary returns true.
 func (f *Binary) CanFormatBinary() bool {
 	return true
-}
-
-func init() {
-	dr.SetDefaultBinaryFormatter(func() dr.Formatter {
-		return NewBinary()
-	})
 }

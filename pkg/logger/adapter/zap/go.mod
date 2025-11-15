@@ -1,6 +1,6 @@
 module github.com/raoptimus/data-response.go/pkg/logger/adapter/zap
 
-go 1.25
+go 1.25.4
 
 require (
 	github.com/raoptimus/data-response.go/pkg/logger v0.0.0

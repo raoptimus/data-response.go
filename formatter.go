@@ -17,10 +17,7 @@ type FormattedResponse struct {
 	// ContentType for Content-Type header
 	ContentType string
 
-	// Body contains the formatted data (for non-binary responses)
-	Body []byte
-
-	// Stream contains binary data (for binary responses)
+	// Stream formatted content
 	Stream io.Reader
 
 	// StreamSize is the size of stream data (-1 if unknown)
