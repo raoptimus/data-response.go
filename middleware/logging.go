@@ -17,6 +17,7 @@ import (
 	dr "github.com/raoptimus/data-response.go/v2"
 )
 
+// todo template
 func Logging() dr.Middleware {
 	return func(next dr.Handler) dr.Handler {
 		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {

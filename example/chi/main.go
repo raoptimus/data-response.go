@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	json "github.com/json-iterator/go"
 	"github.com/raoptimus/data-response.go/pkg/chiadapter"
 	slogadapter "github.com/raoptimus/data-response.go/pkg/logger/adapter/slog"
 	dr "github.com/raoptimus/data-response.go/v2"
@@ -44,6 +46,7 @@ func main() {
 			Level:   middleware.CompressionLevelDefault,
 			MinSize: 1024,
 		}),
+		chimiddleware.BasicAuth("", map[string]string{"user": "pass"}), // todo must use adapter
 	)
 
 	// Use standard chi middleware if needed
@@ -70,7 +73,6 @@ func main() {
 		api.Get("/users", listUsers)
 		api.Get("/users/{id}", getUser)
 		api.Post("/users", createUser)
-		api.Put("/users/{id}", updateUser)
 		api.Delete("/users/{id}", deleteUser)
 
 		// Admin routes
@@ -113,30 +115,14 @@ func getUser(r *http.Request, f *dr.Factory) dr.DataResponse {
 
 func createUser(r *http.Request, f *dr.Factory) dr.DataResponse {
 	var user User
-	if err := dr.DecodeJSON(r.Body, &user); err != nil {
+
+	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
 		return f.BadRequest(r.Context(), "invalid request body")
 	}
 
 	user.ID = 3
 
 	return f.Created(r.Context(), user, "/api/users/3")
-}
-
-func updateUser(r *http.Request, f *dr.Factory) dr.DataResponse {
-	idStr := chiadapter.URLParam(r, "id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		return f.BadRequest(r.Context(), "invalid user ID")
-	}
-
-	var user User
-	if err := dr.DecodeJSON(r.Body, &user); err != nil {
-		return f.BadRequest(r.Context(), "invalid request body")
-	}
-
-	user.ID = id
-
-	return f.Success(r.Context(), user)
 }
 
 func deleteUser(r *http.Request, f *dr.Factory) dr.DataResponse {
