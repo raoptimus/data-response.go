@@ -25,11 +25,11 @@ func (d *VersionData) String() string {
 	)
 }
 
-func Version(data *VersionData) dr.Handler {
-	return VersionFunc(data)
+func AppVersion(data *VersionData) dr.Handler {
+	return AppVersionFunc(data)
 }
 
-func VersionFunc(data *VersionData) dr.HandlerFunc {
+func AppVersionFunc(data *VersionData) dr.HandlerFunc {
 	return func(r *http.Request, f *dr.Factory) dr.DataResponse {
 		return f.Success(r.Context(), data.String()).
 			WithHeader(dr.HeaderXContentTypeOptions, dr.ContentTypeOptionsNoSniff)

@@ -1,4 +1,4 @@
-module github.com/raoptimus/data-response.go/pkg/chi
+module github.com/raoptimus/data-response.go/pkg/chiadapter
 
 go 1.25.4
 
@@ -9,7 +9,6 @@ require (
 
 require (
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/raoptimus/data-response.go v1.4.2 // indirect
 	github.com/raoptimus/data-response.go/pkg/logger v0.0.0 // indirect
 	github.com/raoptimus/data-response.go/pkg/logger/adapter/slog v0.0.0 // indirect
 )

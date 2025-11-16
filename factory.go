@@ -14,6 +14,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/raoptimus/data-response.go/pkg/logger"
@@ -234,6 +235,15 @@ func (f *Factory) Unauthorized(ctx context.Context, message string) DataResponse
 	return f.Error(ctx, http.StatusUnauthorized, message)
 }
 
+// ServiceUnavailable creates a 503 Service Unavailable response
+func (f *Factory) ServiceUnavailable(ctx context.Context, message string) DataResponse {
+	if message == "" {
+		message = "Service unavailable"
+	}
+
+	return f.Error(ctx, http.StatusServiceUnavailable, message)
+}
+
 // Forbidden creates a 403 Forbidden response.
 func (f *Factory) Forbidden(ctx context.Context, message string) DataResponse {
 	if message == "" {
@@ -287,14 +297,23 @@ func (f *Factory) Binary(ctx context.Context, reader io.Reader, filename string,
 		f.logger.Debug(ctx, "binary response", "filename", filename, "size", size)
 	}
 
+	// Detect Content-Type from filename
+	ext := filepath.Ext(filename)
+	contentType := MimeTypeFromExtension(ext).String()
+
 	return DataResponse{
 		formatter: f.formatter,
+		formatted: FormattedResponse{
+			ContentType: contentType,
+			Stream:      reader,
+			StreamSize:  size,
+		},
+
 		statusCode: http.StatusOK,
-		stream:    reader,
-		isBinary:  true,
-		filename:   filename,
-		size:       size,
-		header:     make(http.Header),
+		header: make(http.Header),
+
+		isBinary: true,
+		filename: filename,
 	}
 }
 
@@ -315,15 +334,7 @@ func (f *Factory) File(ctx context.Context, filepath string) DataResponse {
 		f.logger.Debug(ctx, "file response", "path", filepath, "size", stat.Size())
 	}
 
-	return DataResponse{
-		formatter: f.formatter,
-		statusCode: http.StatusOK,
-		stream:    file,
-		isBinary:  true,
-		filename:   stat.Name(),
-		size:       stat.Size(),
-		header:     make(http.Header),
-	}
+	return f.Binary(ctx, file, stat.Name(), stat.Size())
 }
 
 // Formatter returns the current default formatter for this factory.

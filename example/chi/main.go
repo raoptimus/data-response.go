@@ -5,13 +5,13 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"time"
+	"strconv"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	adapterslog "github.com/raoptimus/data-response.go/pkg/logger/adapter/slog"
+	"github.com/raoptimus/data-response.go/pkg/chiadapter"
+	slogadapter "github.com/raoptimus/data-response.go/pkg/logger/adapter/slog"
 	dr "github.com/raoptimus/data-response.go/v2"
 	"github.com/raoptimus/data-response.go/v2/formatter"
+	"github.com/raoptimus/data-response.go/v2/middleware"
 )
 
 type User struct {
@@ -21,85 +21,153 @@ type User struct {
 }
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-
-	factory := dr.New(
-		dr.WithLogger(adapterslog.New(logger)),
-		dr.WithFormatter(formatter.NewJSON()),
-	)
-
-	// ✅ Create chi adapter
-	chiAdapter := dr.NewChiAdapter(factory)
-
-	// Create chi router
-	r := chi.NewRouter()
-
-	// ✅ Use standard chi middleware
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
-
-	// ✅ Convert dr middleware to chi middleware
-	authMW := NewAuth(factory, func(token string) bool {
-		return token == "secret-token"
-	})
-	loggerMW := NewLogging(adapterslog.New(logger), factory)
-
-	// Health check - no auth required
-	r.Get("/health", chiAdapter.HandlerFunc(func(r *http.Request) dr.dr {
-		return factory.Success(r.Context(), map[string]string{"status": "ok"})
+	// Create logger
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
 	}))
 
-	// API routes with dr middleware
-	r.Route("/api", func(r chi.Router) {
-		// ✅ Apply dr middleware converted to chi middleware
-		r.Use(chiAdapter.Middleware(loggerMW))
+	// Create factory
+	factory := dr.New(
+		dr.WithLogger(slogadapter.New(logger)),
+		dr.WithFormatter(formatter.NewJSON()),
+		dr.WithVerbosity(true),
+	)
 
-		// Public routes
-		r.Group(func(r chi.Router) {
-			r.Get("/public", chiAdapter.HandlerFunc(func(r *http.Request) dr.dr {
-				return factory.Success(r.Context(), map[string]string{"data": "public"})
-			}))
+	// Create chi router with DataResponse support
+	r := chiadapter.NewRouter(factory)
+
+	// Add global middleware
+	r.WithMiddleware(
+		middleware.Logging(),
+		middleware.Recovery(),
+		middleware.Compression(middleware.CompressionOptions{
+			Level:   middleware.CompressionLevelDefault,
+			MinSize: 1024,
+		}),
+	)
+
+	// Use standard chi middleware if needed
+	r.Use(chiadapter.FactoryMiddleware(factory))
+
+	// Health check
+	r.Get("/health", func(r *http.Request, f *dr.Factory) dr.DataResponse {
+		return f.Success(r.Context(), map[string]string{
+			"status": "ok",
 		})
+	})
 
-		// Protected routes
-		r.Group(func(r chi.Router) {
-			r.Use(chiAdapter.Middleware(authMW))
+	// API routes
+	r.Route("/api", func(api *chiadapter.Router) {
+		// Add API-specific middleware
+		api.WithMiddleware(
+			middleware.ContentTypeValidator(middleware.ContentTypeValidatorOptions{
+				AllowedTypes: []string{"application/json"},
+				Methods:      []string{"POST", "PUT", "PATCH"},
+			}),
+		)
 
-			r.Get("/users", chiAdapter.HandlerFunc(func(r *http.Request) dr.dr {
-				users := []User{
-					{ID: 1, Name: "Alice", Email: "alice@example.com"},
-					{ID: 2, Name: "Bob", Email: "bob@example.com"},
-				}
-				return factory.Success(r.Context(), users)
-			}))
+		// Users endpoints
+		api.Get("/users", listUsers)
+		api.Get("/users/{id}", getUser)
+		api.Post("/users", createUser)
+		api.Put("/users/{id}", updateUser)
+		api.Delete("/users/{id}", deleteUser)
 
-			r.Get("/users/{id}", chiAdapter.HandlerFunc(func(r *http.Request) dr.dr {
-				id := chi.URLParam(r, "id")
+		// Admin routes
+		api.Route("/admin", func(admin *chiadapter.Router) {
+			// Admin-specific middleware
+			admin.WithMiddleware(authMiddleware())
 
-				if id == "999" {
-					return factory.NotFound(r.Context(), "User not found")
-				}
-
-				user := User{ID: 1, Name: "Alice", Email: "alice@example.com"}
-				return factory.Success(r.Context(), user)
-			}))
-
-			r.Post("/users", chiAdapter.HandlerFunc(func(r *http.Request) dr.dr {
-				attributeErrors := map[string][]string{
-					"email": {"Email is required"},
-					"name":  {"Name must be at least 3 characters"},
-				}
-
-				return factory.ValidationError(r.Context(), "Validation failed", attributeErrors)
-			}))
+			admin.Get("/stats", getStats)
 		})
 	})
 
 	log.Println("Server starting on :8080")
-	log.Println("Try: curl http://localhost:8080/health")
-	log.Println("Try: curl -H 'Authorization: Bearer secret-token' http://localhost:8080/api/users")
 	http.ListenAndServe(":8080", r)
+}
+
+func listUsers(r *http.Request, f *dr.Factory) dr.DataResponse {
+	users := []User{
+		{ID: 1, Name: "Alice", Email: "alice@example.com"},
+		{ID: 2, Name: "Bob", Email: "bob@example.com"},
+	}
+
+	return f.Success(r.Context(), users)
+}
+
+func getUser(r *http.Request, f *dr.Factory) dr.DataResponse {
+	// Get URL parameter using chi adapter
+	idStr := chiadapter.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return f.BadRequest(r.Context(), "invalid user ID")
+	}
+
+	if id != 1 {
+		return f.NotFound(r.Context(), "user not found")
+	}
+
+	user := User{ID: id, Name: "Alice", Email: "alice@example.com"}
+	return f.Success(r.Context(), user)
+}
+
+func createUser(r *http.Request, f *dr.Factory) dr.DataResponse {
+	var user User
+	if err := dr.DecodeJSON(r.Body, &user); err != nil {
+		return f.BadRequest(r.Context(), "invalid request body")
+	}
+
+	user.ID = 3
+
+	return f.Created(r.Context(), user, "/api/users/3")
+}
+
+func updateUser(r *http.Request, f *dr.Factory) dr.DataResponse {
+	idStr := chiadapter.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return f.BadRequest(r.Context(), "invalid user ID")
+	}
+
+	var user User
+	if err := dr.DecodeJSON(r.Body, &user); err != nil {
+		return f.BadRequest(r.Context(), "invalid request body")
+	}
+
+	user.ID = id
+
+	return f.Success(r.Context(), user)
+}
+
+func deleteUser(r *http.Request, f *dr.Factory) dr.DataResponse {
+	idStr := chiadapter.URLParam(r, "id")
+	_, err := strconv.Atoi(idStr)
+	if err != nil {
+		return f.BadRequest(r.Context(), "invalid user ID")
+	}
+
+	return f.NoContent(r.Context())
+}
+
+func getStats(r *http.Request, f *dr.Factory) dr.DataResponse {
+	stats := map[string]interface{}{
+		"users":    100,
+		"requests": 1000,
+		"uptime":   "24h",
+	}
+
+	return f.Success(r.Context(), stats)
+}
+
+func authMiddleware() dr.Middleware {
+	return func(next dr.Handler) dr.Handler {
+		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
+			token := r.Header.Get("Authorization")
+			if token != "Bearer secret" {
+				return f.Unauthorized(r.Context(), "invalid token")
+			}
+
+			return next.Handle(r, f)
+		})
+	}
 }

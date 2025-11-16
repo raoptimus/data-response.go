@@ -9,7 +9,6 @@
 package formatter
 
 import (
-	"bufio"
 	"bytes"
 	"html/template"
 
@@ -56,7 +55,7 @@ func (f *HTML) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
 
 	return dr.FormattedResponse{
 		ContentType: f.ContentType(),
-		Stream:     bufio.NewReader(&buf),
+		Stream: bytes.NewReader(buf.Bytes()),
 		StreamSize: int64(buf.Len()),
 	}, nil
 }

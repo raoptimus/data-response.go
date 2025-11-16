@@ -17,12 +17,12 @@ import (
 // Write writes a DataResponse to http.ResponseWriter.
 // It handles formatting, headers, and body writing.
 func Write(w http.ResponseWriter, resp DataResponse) error {
-	size, body, err := resp.Body()
+	formattedResp, err := resp.Body()
 	if err != nil {
 		return err
 	}
-	if size > 0 {
-		w.Header().Add(HeaderContentLength, strconv.FormatInt(size, 10))
+	if formattedResp.StreamSize > 0 {
+		w.Header().Add(HeaderContentLength, strconv.FormatInt(formattedResp.StreamSize, 10))
 	}
 
 	// Write custom headers from response
@@ -41,13 +41,13 @@ func Write(w http.ResponseWriter, resp DataResponse) error {
 	w.WriteHeader(resp.StatusCode())
 
 	// Stream data
-	if size > 0 {
-		_, err = io.CopyN(w, body, size)
+	if formattedResp.StreamSize > 0 {
+		_, err = io.CopyN(w, formattedResp.Stream, formattedResp.StreamSize)
 
 		return err
 	}
 
-	_, err = io.Copy(w, body)
+	_, err = io.Copy(w, formattedResp.Stream)
 
 	return err
 }

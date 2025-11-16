@@ -35,7 +35,7 @@ var patternPlaceholdersRegxp = regexp.MustCompile(`{([a-zA-Z0-9]+).*?}`)
 func Measurement(serv MetricsService, patternFunc MatchedRoutePatternFunc) dr.Middleware {
 	return func(next dr.Handler) dr.Handler {
 		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
-			start := time.Now()
+			start := time.Now() // todo get from ctx req|resp
 			resp := next.Handle(r, f)
 
 			var routePattern string

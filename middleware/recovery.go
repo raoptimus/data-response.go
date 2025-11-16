@@ -15,7 +15,7 @@ import (
 	dr "github.com/raoptimus/data-response.go/v2"
 )
 
-func Recover() dr.Middleware {
+func Recovery() dr.Middleware {
 	return func(next dr.Handler) dr.Handler {
 		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
 			var resp dr.DataResponse

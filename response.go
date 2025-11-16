@@ -9,9 +9,7 @@
 package dataresponse
 
 import (
-	"bufio"
 	"bytes"
-	"io"
 	"net/http"
 
 	"github.com/pkg/errors"
@@ -23,11 +21,15 @@ type DataResponse struct {
 	statusCode int
 	data       any
 	header     http.Header
-	stream   io.Reader
-	isBinary bool
-	filename   string
-	size       int64
 	formatter  Formatter
+
+	// Pre-formatted response (set by middleware like compression)
+	formatted    FormattedResponse
+	hasFormatted bool
+
+	// Binary-specific fields
+	isBinary bool
+	filename string
 }
 
 // StatusCode returns the HTTP status code.
@@ -35,8 +37,10 @@ func (r DataResponse) StatusCode() int {
 	return r.statusCode
 }
 
-func (r DataResponse) WriteHeader(statusCode int) {
+func (r DataResponse) WithStatusCode(statusCode int) DataResponse {
 	r.statusCode = statusCode
+
+	return r
 }
 
 // Data returns the response data payload.
@@ -44,37 +48,43 @@ func (r DataResponse) Data() any {
 	return r.data
 }
 
-func (r DataResponse) Body() (int64, io.Reader, error) {
-	if r.stream != nil {
-		return r.size, r.stream, nil
+func (r DataResponse) Body() (FormattedResponse, error) {
+	if r.hasFormatted {
+		return r.formatted, nil
 	}
 
 	if r.formatter != nil {
 		formattedResp, err := r.formatter.Format(r)
 		if err != nil {
-			return 0, nil, err
+			return FormattedResponse{}, err
 		}
 		r.WithContentType(formattedResp.ContentType)
 
-		return formattedResp.StreamSize, formattedResp.Stream, nil
+		return formattedResp, nil
 	}
 
 	data := r.Data()
 	dataBytes, err := conv.DataToString(data)
 	if err != nil {
-		return 0, nil, err
+		return FormattedResponse{}, errors.WithStack(err)
 	}
 	var buf bytes.Buffer
 	buf.Write(dataBytes)
 
-	return int64(buf.Len()), bufio.NewReader(&buf), nil
+	return FormattedResponse{
+		ContentType: r.ContentType(),
+		Stream:      bytes.NewReader(dataBytes),
+		StreamSize:  int64(len(dataBytes)),
+	}, nil
 }
 
-func (r DataResponse) WithStream(stream io.Reader, size int64) DataResponse {
-	r.stream = stream
-	r.size = size
+// WithFormatted sets pre-formatted response.
+// Used by compression middleware after compressing the body.
+func (r DataResponse) WithFormatted(formatted FormattedResponse) DataResponse {
+	r.formatted = formatted
+	r.hasFormatted = true
 
-	return r
+	return r.WithContentType(formatted.ContentType)
 }
 
 // Header returns the HTTP headers.
@@ -97,29 +107,14 @@ func (r DataResponse) ContentType() string {
 	return r.HeaderLine(HeaderContentType)
 }
 
-// Binary returns the binary data reader.
-func (r DataResponse) Binary() io.Reader {
-	return r.stream
-}
-
 // Filename returns the filename for binary responses.
 func (r DataResponse) Filename() string {
 	return r.filename
 }
 
-// Size returns the size for binary responses.
-func (r DataResponse) Size() int64 {
-	return r.size
-}
-
 // IsBinary returns true if this is a binary response.
 func (r DataResponse) IsBinary() bool {
-	return r.isBinary && r.stream != nil
-}
-
-// HasData returns true if response has data payload.
-func (r DataResponse) HasData() bool {
-	return r.data != nil || r.stream != nil
+	return r.isBinary
 }
 
 // HasHeader returns true if header key exists.
@@ -135,18 +130,21 @@ func (r DataResponse) Formatter() (Formatter, error) {
 	return nil, errors.WithStack(ErrFormatterMustBeSet)
 }
 
-// WithHeader returns a copy of response with an additional header.
-// It adds a value to the header list for the given key (supports multiple values).
+// WithHeader adds a header value (supports multiple values per key).
 func (r DataResponse) WithHeader(key, value string) DataResponse {
 	if r.header == nil {
 		r.header = make(http.Header)
 	}
-	if r.HasHeader(key) {
-		r.header.Set(key, value)
-	} else {
-		r.header.Add(key, value)
-	}
+	r.header.Add(key, value)
+	return r
+}
 
+// SetHeader sets a header value (replaces existing values).
+func (r DataResponse) SetHeader(key, value string) DataResponse {
+	if r.header == nil {
+		r.header = make(http.Header)
+	}
+	r.header.Set(key, value)
 	return r
 }
 
@@ -177,7 +175,7 @@ func (r DataResponse) WithHeaders(headers http.Header) DataResponse {
 
 // WithContentType returns a copy of response with a custom content type.
 func (r DataResponse) WithContentType(contentType string) DataResponse {
-	return r.WithHeader(HeaderContentType, contentType)
+	return r.SetHeader(HeaderContentType, contentType)
 }
 
 // WithData returns a copy of response with modified data.

@@ -9,7 +9,6 @@
 package middleware
 
 import (
-	"bufio"
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
@@ -22,7 +21,7 @@ import (
 	dr "github.com/raoptimus/data-response.go/v2"
 )
 
-var ErrUnknowEncoding = errors.New("unknow encoding")
+var ErrUnknownEncoding = errors.New("unknow encoding")
 
 // CompressionLevel defines compression level.
 type CompressionLevel int
@@ -83,7 +82,7 @@ func Compression(opts CompressionOptions) dr.Middleware {
 
 			// Execute handler
 			resp := next.Handle(r, f)
-			size, body, err := resp.Body()
+			formattedResp, err := resp.Body()
 			if err != nil {
 				f.Logger().Error(r.Context(), "failed to get formatted response",
 					"error", err,
@@ -91,7 +90,7 @@ func Compression(opts CompressionOptions) dr.Middleware {
 
 				return resp // Return original on error
 			}
-			resp = resp.WithStream(body, size) // Save ready formatted content
+			resp = resp.WithFormatted(formattedResp) // Save ready formatted content
 
 			// Check if content type should be compressed
 			if !shouldCompress(resp.ContentType(), opts.ContentTypes) {
@@ -99,18 +98,19 @@ func Compression(opts CompressionOptions) dr.Middleware {
 			}
 
 			// Check minimum size
-			if resp.Size() < opts.MinSize {
+			if formattedResp.StreamSize < opts.MinSize {
 				f.Logger().Debug(r.Context(), "body too small to compress",
-					"error", err,
+					"size", formattedResp.StreamSize,
+					"min_size", opts.MinSize,
 				)
 
 				return resp // Too small to compress
 			}
 
 			// Compress the body
-			compressedSize, compressedBody, err := compressBody(body, encoding, int(opts.Level))
+			compressedResp, err := compressBody(formattedResp, encoding, int(opts.Level))
 			if err != nil {
-				if errors.Is(err, ErrUnknowEncoding) {
+				if errors.Is(err, ErrUnknownEncoding) {
 					f.Logger().Debug(r.Context(), "failed to compress response",
 						"error", err.Error(),
 						"encoding", encoding,
@@ -127,7 +127,7 @@ func Compression(opts CompressionOptions) dr.Middleware {
 
 			// Return compressed response with appropriate headers
 			return resp.
-				WithStream(compressedBody, compressedSize).
+				WithFormatted(compressedResp).
 				WithHeader("Content-Encoding", encoding).
 				WithHeader("Vary", "Accept-Encoding")
 		})
@@ -215,8 +215,8 @@ func shouldCompress(contentType string, allowedTypes []string) bool {
 }
 
 // compressBody compresses data using specified encoding.
-func compressBody(body io.Reader, encoding string, level int) (int64, io.Reader, error) {
-	var buf bytes.Buffer
+func compressBody(body dr.FormattedResponse, encoding string, level int) (dr.FormattedResponse, error) {
+	buf := new(bytes.Buffer)
 	var writer io.WriteCloser
 	var err error
 
@@ -226,47 +226,51 @@ func compressBody(body io.Reader, encoding string, level int) (int64, io.Reader,
 		if level < 0 {
 			level = brotli.DefaultCompression
 		}
-		writer = brotli.NewWriterLevel(&buf, level)
+		writer = brotli.NewWriterLevel(buf, level)
 
 	case "gzip":
 		// Gzip compression
 		if level < 0 {
-			writer, err = gzip.NewWriterLevel(&buf, gzip.DefaultCompression)
+			writer, err = gzip.NewWriterLevel(buf, gzip.DefaultCompression)
 		} else {
-			writer, err = gzip.NewWriterLevel(&buf, level)
+			writer, err = gzip.NewWriterLevel(buf, level)
 		}
 		if err != nil {
-			return 0, nil, err
+			return dr.FormattedResponse{}, err
 		}
 
 	case "deflate":
 		// Deflate compression
 		if level < 0 {
-			writer, err = flate.NewWriter(&buf, flate.DefaultCompression)
+			writer, err = flate.NewWriter(buf, flate.DefaultCompression)
 		} else {
-			writer, err = flate.NewWriter(&buf, level)
+			writer, err = flate.NewWriter(buf, level)
 		}
 		if err != nil {
-			return 0, nil, err
+			return dr.FormattedResponse{}, err
 		}
 
 	default:
-		return 0, nil, errors.WithStack(ErrUnknowEncoding)
+		return dr.FormattedResponse{}, errors.WithStack(ErrUnknownEncoding)
 	}
 
 	// Write and close
-	_, err = io.Copy(writer, body)
+	_, err = io.Copy(writer, body.Stream)
 	if err != nil {
 		writer.Close()
 
-		return 0, nil, err
+		return dr.FormattedResponse{}, err
 	}
 
 	if err := writer.Close(); err != nil {
-		return 0, nil, err
+		return dr.FormattedResponse{}, err
 	}
 
-	return int64(buf.Len()), bufio.NewReader(&buf), nil
+	return dr.FormattedResponse{
+		ContentType: body.ContentType,
+		Stream:      bytes.NewReader(buf.Bytes()),
+		StreamSize:  int64(buf.Len()),
+	}, nil
 }
 
 // DefaultCompression creates compression middleware with default settings.
@@ -276,10 +280,9 @@ func DefaultCompression() dr.Middleware {
 		MinSize: defaultMinSizeToCompress,
 		ContentTypes: []string{
 			"text/*",
-			"application/json",
-			"application/xml",
-			"application/html",
-			"application/javascript",
+			dr.ContentTypeJSON,
+			dr.ContentTypeXML,
+			dr.ContentTypeJavascript,
 		},
 	})
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	dr "github.com/raoptimus/data-response.go/v2"
 )
 
 type DeadStackedErrors struct {
@@ -80,14 +81,13 @@ func (l *LivenessServiceRegistry) Alive(ctx context.Context) error {
 	return nil
 }
 
-func Liveness(serv LivenessService) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-
-		if err := serv.Alive(req.Context()); err != nil {
-			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+func LivenessProbe(serv LivenessService) dr.HandlerFunc {
+	return func(r *http.Request, f *dr.Factory) dr.DataResponse {
+		if err := serv.Alive(r.Context()); err != nil {
+			return f.ServiceUnavailable(r.Context(), err.Error())
 		} else {
-			w.WriteHeader(http.StatusOK)
+			return f.Success(r.Context(), nil)
 		}
-	})
+	}
 }
+

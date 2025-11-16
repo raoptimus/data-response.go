@@ -96,6 +96,7 @@ const (
 	ContentTypeHTMLCharsetUTF8  = "text/html; charset=utf-8"
 	ContentTypePlain            = "text/plain"
 	ContentTypePlainCharsetUTF8 = "text/plain; charset=utf-8"
+	ContentTypeJavascript = "application/javascript"
 	ContentTypeForm             = "application/x-www-form-urlencoded"
 	ContentTypeMultipartForm    = "multipart/form-data"
 	ContentTypeOctetStream      = "application/octet-stream"
