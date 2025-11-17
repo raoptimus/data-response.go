@@ -66,7 +66,7 @@ func (r DataResponse) Body() (FormattedResponse, error) {
 	data := r.Data()
 	dataBytes, err := conv.DataToString(data)
 	if err != nil {
-		return FormattedResponse{}, errors.WithStack(err)
+		return FormattedResponse{}, err
 	}
 	var buf bytes.Buffer
 	buf.Write(dataBytes)
@@ -89,16 +89,28 @@ func (r DataResponse) WithFormatted(formatted FormattedResponse) DataResponse {
 
 // Header returns the HTTP headers.
 func (r DataResponse) Header() http.Header {
+	if r.header == nil {
+		r.header = make(http.Header)
+	}
+
 	return r.header
 }
 
 // HeaderValues returns all values for the given header key.
 func (r DataResponse) HeaderValues(key string) []string {
+	if r.header == nil {
+		r.header = make(http.Header)
+	}
+
 	return r.header.Values(key)
 }
 
 // HeaderLine returns the first value for the given header key.
 func (r DataResponse) HeaderLine(key string) string {
+	if r.header == nil {
+		r.header = make(http.Header)
+	}
+	
 	return r.header.Get(key)
 }
 

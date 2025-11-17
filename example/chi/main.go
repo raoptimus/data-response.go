@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	json "github.com/json-iterator/go"
 	"github.com/raoptimus/data-response.go/pkg/chiadapter"
@@ -46,11 +47,10 @@ func main() {
 			Level:   middleware.CompressionLevelDefault,
 			MinSize: 1024,
 		}),
-		chimiddleware.BasicAuth("", map[string]string{"user": "pass"}), // todo must use adapter
+		chiadapter.WrapChiMiddleware(
+			chimiddleware.BasicAuth("", map[string]string{"user": "pass"}),
+		),
 	)
-
-	// Use standard chi middleware if needed
-	r.Use(chiadapter.FactoryMiddleware(factory))
 
 	// Health check
 	r.Get("/health", func(r *http.Request, f *dr.Factory) dr.DataResponse {
@@ -99,7 +99,7 @@ func listUsers(r *http.Request, f *dr.Factory) dr.DataResponse {
 
 func getUser(r *http.Request, f *dr.Factory) dr.DataResponse {
 	// Get URL parameter using chi adapter
-	idStr := chiadapter.URLParam(r, "id")
+	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		return f.BadRequest(r.Context(), "invalid user ID")
@@ -126,7 +126,7 @@ func createUser(r *http.Request, f *dr.Factory) dr.DataResponse {
 }
 
 func deleteUser(r *http.Request, f *dr.Factory) dr.DataResponse {
-	idStr := chiadapter.URLParam(r, "id")
+	idStr := chi.URLParam(r, "id")
 	_, err := strconv.Atoi(idStr)
 	if err != nil {
 		return f.BadRequest(r.Context(), "invalid user ID")

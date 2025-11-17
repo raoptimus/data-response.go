@@ -9,34 +9,26 @@
 package chiadapter
 
 import (
-	"context"
-	"fmt"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	dr "github.com/raoptimus/data-response.go/v2"
 )
 
-// contextKey is the key type for context values.
-type contextKey string
-
-const factoryKey contextKey = "dataresponse:factory"
-
-// FactoryMiddleware injects Factory into request context.
-// This allows chi middleware to access Factory if needed.
-func FactoryMiddleware(factory *dr.Factory) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := context.WithValue(r.Context(), factoryKey, factory)
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
+type capturedResponse struct {
+	capturedResp dr.DataResponse
 }
 
-// FactoryFromContext retrieves Factory from request context.
-func FactoryFromContext(ctx context.Context) (*dr.Factory, bool) {
-	factory, ok := ctx.Value(factoryKey).(*dr.Factory)
-	return factory, ok
+func (wr *capturedResponse) Header() http.Header {
+	return wr.capturedResp.Header()
+}
+
+func (wr *capturedResponse) Write(b []byte) (int, error) {
+	// Silently ignore writes - body will be managed by DataResponse
+	return len(b), nil
+}
+
+func (wr *capturedResponse) WriteHeader(statusCode int) {
+	wr.capturedResp = wr.capturedResp.WithStatusCode(statusCode)
 }
 
 // WrapChiMiddleware converts chi middleware to DataResponse middleware.
@@ -44,44 +36,38 @@ func FactoryFromContext(ctx context.Context) (*dr.Factory, bool) {
 func WrapChiMiddleware(chiMiddleware func(http.Handler) http.Handler) dr.Middleware {
 	return func(next dr.Handler) dr.Handler {
 		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
-			// Create a dummy handler that captures the response
-			var capturedResp dr.DataResponse
+			var captured bool
+			capturedWriter := &capturedResponse{
+				capturedResp: dr.DataResponse{}, // Empty, status = 0
+			}
 
+			// Create a dummy handler that captures the response
 			dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				capturedResp = next.Handle(r, f)
+				capturedResp := next.Handle(r, f).
+					WithStatusCode(capturedWriter.capturedResp.StatusCode()).
+					WithHeaders(capturedWriter.capturedResp.Header())
+				capturedWriter.capturedResp = capturedResp
+				captured = true
 			})
 
 			// Execute chi middleware
-			chiMiddleware(dummyHandler).ServeHTTP(nil, r)
+			chiMiddleware(dummyHandler).ServeHTTP(capturedWriter, r)
 
-			return capturedResp
+			if !captured {
+				statusCode := capturedWriter.capturedResp.StatusCode()
+				if statusCode == http.StatusOK {
+					return f.Success(r.Context(), nil).
+						WithHeaders(capturedWriter.capturedResp.Header())
+				}
+				if statusCode == 0 {
+					statusCode = http.StatusInternalServerError
+				}
+
+				return f.Error(r.Context(), statusCode, http.StatusText(statusCode)).
+					WithHeaders(capturedWriter.capturedResp.Header())
+			}
+
+			return capturedWriter.capturedResp
 		})
 	}
-}
-
-// URLParam returns URL parameter from chi router.
-func URLParam(r *http.Request, key string) string {
-	return chi.URLParam(r, key)
-}
-
-// URLParamInt returns URL parameter as int.
-func URLParamInt(r *http.Request, key string) (int, error) {
-	param := chi.URLParam(r, key)
-	var i int
-	_, err := fmt.Sscanf(param, "%d", &i)
-	return i, err
-}
-
-// AllURLParams returns all URL parameters.
-func AllURLParams(r *http.Request) map[string]string {
-	rctx := chi.RouteContext(r.Context())
-	if rctx == nil {
-		return make(map[string]string)
-	}
-
-	params := make(map[string]string)
-	for i, key := range rctx.URLParams.Keys {
-		params[key] = rctx.URLParams.Values[i]
-	}
-	return params
 }

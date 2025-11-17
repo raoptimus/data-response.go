@@ -171,6 +171,10 @@ func (f *Factory) NoContent(ctx context.Context) DataResponse {
 
 // Error creates an error response with custom data builder.
 func (f *Factory) Error(ctx context.Context, status int, message string) DataResponse {
+	if message == "" {
+		message = http.StatusText(status)
+	}
+
 	if f.debugMode {
 		f.logger.Debug(ctx, "error response", "status", status, "message", message)
 	}
@@ -219,55 +223,31 @@ func (f *Factory) InternalError(ctx context.Context, err error) DataResponse {
 
 // BadRequest creates a 400 Bad Request response.
 func (f *Factory) BadRequest(ctx context.Context, message string) DataResponse {
-	if message == "" {
-		message = "Bad request"
-	}
-
 	return f.Error(ctx, http.StatusBadRequest, message)
 }
 
 // Unauthorized creates a 401 Unauthorized response.
 func (f *Factory) Unauthorized(ctx context.Context, message string) DataResponse {
-	if message == "" {
-		message = "Unauthorized"
-	}
-
 	return f.Error(ctx, http.StatusUnauthorized, message)
 }
 
 // ServiceUnavailable creates a 503 Service Unavailable response
 func (f *Factory) ServiceUnavailable(ctx context.Context, message string) DataResponse {
-	if message == "" {
-		message = "Service unavailable"
-	}
-
 	return f.Error(ctx, http.StatusServiceUnavailable, message)
 }
 
 // Forbidden creates a 403 Forbidden response.
 func (f *Factory) Forbidden(ctx context.Context, message string) DataResponse {
-	if message == "" {
-		message = "Forbidden"
-	}
-
 	return f.Error(ctx, http.StatusForbidden, message)
 }
 
 // NotFound creates a 404 Not Found response.
 func (f *Factory) NotFound(ctx context.Context, message string) DataResponse {
-	if message == "" {
-		message = "Not found"
-	}
-
 	return f.Error(ctx, http.StatusNotFound, message)
 }
 
 // Conflict creates a 409 Conflict response.
 func (f *Factory) Conflict(ctx context.Context, message string) DataResponse {
-	if message == "" {
-		message = "Conflict"
-	}
-
 	return f.Error(ctx, http.StatusConflict, message)
 }
 
