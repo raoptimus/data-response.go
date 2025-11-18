@@ -12,14 +12,14 @@ import (
 	"net/http"
 )
 
-// WrapMiddleware converts chi middleware to DataResponse middleware.
+// WrapMiddleware converts std middleware to DataResponse middleware.
 // The chi middleware will be executed, but DataResponse will be returned from handler.
-func WrapMiddleware(Middleware func(http.Handler) http.Handler) Middleware {
+func WrapMiddleware(stdM func(http.Handler) http.Handler) Middleware {
 	return func(next Handler) Handler {
 		return HandlerFunc(func(r *http.Request, f *Factory) DataResponse {
 			var captured bool
 			capturedWriter := &capturedResponse{
-				capturedResp: DataResponse{}, // Empty, status = 0
+				capturedResp: new(0, nil).WithFormatter(f.formatter),
 			}
 
 			// Create a dummy handler that captures the response
@@ -32,7 +32,7 @@ func WrapMiddleware(Middleware func(http.Handler) http.Handler) Middleware {
 			})
 
 			// Execute chi middleware
-			Middleware(dummyHandler).ServeHTTP(capturedWriter, r)
+			stdM(dummyHandler).ServeHTTP(capturedWriter, r)
 
 			if !captured {
 				statusCode := capturedWriter.capturedResp.StatusCode()

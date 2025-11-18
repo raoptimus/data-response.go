@@ -17,6 +17,8 @@ import (
 // Write writes a DataResponse to http.ResponseWriter.
 // It handles formatting, headers, and body writing.
 func Write(w http.ResponseWriter, resp DataResponse) error {
+	defer resp.Close()
+	
 	formattedResp, err := resp.Body()
 	if err != nil {
 		return err

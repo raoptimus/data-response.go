@@ -1,3 +1,11 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package dataresponse
 
 import "net/http"
@@ -36,7 +44,7 @@ func WrapHandler(h Handler, f *Factory) http.Handler {
 				if !rw.Written() {
 					w.Header().Set(HeaderContentType, MimeTypePlainText.String())
 					w.WriteHeader(http.StatusInternalServerError)
-					w.Write([]byte("Internal Server Error"))
+					_, _ = w.Write([]byte("Internal Server Error"))
 				}
 			}
 		}

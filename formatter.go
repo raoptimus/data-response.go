@@ -25,6 +25,7 @@ type FormattedResponse struct {
 }
 
 // Formatter defines the interface for response formatting strategies.
+//go:generate mockery
 type Formatter interface {
 	// Format converts DataResponse to FormattedResponse.
 	Format(resp DataResponse) (FormattedResponse, error)

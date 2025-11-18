@@ -10,6 +10,7 @@ package dataresponse
 
 import (
 	"bytes"
+	"io"
 	"net/http"
 
 	"github.com/pkg/errors"
@@ -30,6 +31,16 @@ type DataResponse struct {
 	// Binary-specific fields
 	isBinary bool
 	filename string
+
+	closer io.Closer // Close after response is written
+}
+
+func new(statusCode int, data any) DataResponse {
+	return DataResponse{
+		statusCode: statusCode,
+		data:       data,
+		header:     make(http.Header),
+	}
 }
 
 // StatusCode returns the HTTP status code.
@@ -58,7 +69,6 @@ func (r DataResponse) Body() (FormattedResponse, error) {
 		if err != nil {
 			return FormattedResponse{}, err
 		}
-		r.WithContentType(formattedResp.ContentType)
 
 		return formattedResp, nil
 	}
@@ -107,10 +117,6 @@ func (r DataResponse) HeaderValues(key string) []string {
 
 // HeaderLine returns the first value for the given header key.
 func (r DataResponse) HeaderLine(key string) string {
-	if r.header == nil {
-		r.header = make(http.Header)
-	}
-	
 	return r.header.Get(key)
 }
 
@@ -203,12 +209,12 @@ func (r DataResponse) WithCacheControl(value string) DataResponse {
 }
 
 // WithCORS returns a copy of response with CORS headers.
-func (r DataResponse) WithCORS(origin string, methods string, headers string) DataResponse {
+func (r DataResponse) WithCORS(origin, methods, headers string) DataResponse {
 	r = r.WithHeader(HeaderAccessControlAllowOrigin, origin)
-	if methods != "" {
+	if len(methods) > 0 {
 		r = r.WithHeader(HeaderAccessControlAllowMethods, methods)
 	}
-	if headers != "" {
+	if len(headers) > 0 {
 		r = r.WithHeader(HeaderAccessControlAllowHeaders, headers)
 	}
 
@@ -227,4 +233,12 @@ func (r DataResponse) WithFormatter(formatter Formatter) DataResponse {
 	r.formatter = formatter
 
 	return r
+}
+
+func (r DataResponse) Close() error {
+	if r.closer != nil {
+		return r.closer.Close()
+	}
+
+	return nil
 }

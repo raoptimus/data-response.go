@@ -22,7 +22,7 @@ import (
 
 // Factory creates standardized HTTP responses.
 type Factory struct {
-	logger            logger.Logger
+	logger Logger
 	verbosity         bool
 	formatter         Formatter
 	debugMode         bool
@@ -40,7 +40,7 @@ type ValidationErrorBuilder func(ctx context.Context, message string, attributeE
 type Option func(*Factory)
 
 // WithLogger sets the logger.
-func WithLogger(logger logger.Logger) Option {
+func WithLogger(logger Logger) Option {
 	return func(f *Factory) {
 		f.logger = logger
 	}
@@ -104,7 +104,7 @@ func New(opts ...Option) *Factory {
 	return f
 }
 
-func (f *Factory) Logger() logger.Logger {
+func (f *Factory) Logger() Logger {
 	return f.logger
 }
 
@@ -314,7 +314,10 @@ func (f *Factory) File(ctx context.Context, filepath string) DataResponse {
 		f.logger.Debug(ctx, "file response", "path", filepath, "size", stat.Size())
 	}
 
-	return f.Binary(ctx, file, stat.Name(), stat.Size())
+	resp := f.Binary(ctx, file, stat.Name(), stat.Size())
+	resp.closer = file
+
+	return resp
 }
 
 // Formatter returns the current default formatter for this factory.
@@ -324,24 +327,16 @@ func (f *Factory) Formatter() Formatter {
 
 // Clone creates a copy of the factory with different options.
 func (f *Factory) Clone(opts ...Option) *Factory {
-	clone := &Factory{
-		logger:            f.logger,
-		verbosity:         f.verbosity,
-		formatter:         f.formatter,
-		debugMode:         f.debugMode,
-		errorBuilder:      f.errorBuilder,
-		validationBuilder: f.validationBuilder,
-	}
-
+	clone := *f
 	for _, opt := range opts {
-		opt(clone)
+		opt(&clone)
 	}
 
-	return clone
+	return &clone
 }
 
 // defaultErrorBuilder creates simple error structure.
-func defaultErrorBuilder(ctx context.Context, status int, message string, details any) any {
+func defaultErrorBuilder(_ context.Context, status int, message string, details any) any {
 	return Template{
 		Code:   CodeFromStatus(status),
 		Status: strconv.Itoa(status),
@@ -351,7 +346,7 @@ func defaultErrorBuilder(ctx context.Context, status int, message string, detail
 }
 
 // defaultValidationErrorBuilder creates simple validation error structure.
-func defaultValidationErrorBuilder(ctx context.Context, message string, attributeErrors map[string][]string) any {
+func defaultValidationErrorBuilder(_ context.Context, message string, attributeErrors map[string][]string) any {
 	errorsData := make(TemplateErrors, 0, len(attributeErrors))
 	for k, v := range attributeErrors {
 		for _, m := range v {
@@ -379,13 +374,13 @@ func defaultFormatter() Formatter {
 type noopFormatter struct{}
 
 // Format writes only the status code.
-func (noopFormatter) Format(resp DataResponse) (FormattedResponse, error) {
+func (noopFormatter) Format(_ DataResponse) (FormattedResponse, error) {
 	return FormattedResponse{}, nil
 }
 
 // ContentType returns text/plain.
 func (noopFormatter) ContentType() string {
-	return "text/plain"
+	return ContentTypePlain
 }
 
 // CanFormatBinary returns false.
