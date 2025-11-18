@@ -6,39 +6,20 @@
  * @link https://github.com/raoptimus/data-response.go
  */
 
-package chiadapter
+package dataresponse
 
 import (
 	"net/http"
-
-	dr "github.com/raoptimus/data-response.go/v2"
 )
 
-type capturedResponse struct {
-	capturedResp dr.DataResponse
-}
-
-func (wr *capturedResponse) Header() http.Header {
-	return wr.capturedResp.Header()
-}
-
-func (wr *capturedResponse) Write(b []byte) (int, error) {
-	// Silently ignore writes - body will be managed by DataResponse
-	return len(b), nil
-}
-
-func (wr *capturedResponse) WriteHeader(statusCode int) {
-	wr.capturedResp = wr.capturedResp.WithStatusCode(statusCode)
-}
-
-// WrapChiMiddleware converts chi middleware to DataResponse middleware.
+// WrapMiddleware converts chi middleware to DataResponse middleware.
 // The chi middleware will be executed, but DataResponse will be returned from handler.
-func WrapChiMiddleware(chiMiddleware func(http.Handler) http.Handler) dr.Middleware {
-	return func(next dr.Handler) dr.Handler {
-		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
+func WrapMiddleware(Middleware func(http.Handler) http.Handler) Middleware {
+	return func(next Handler) Handler {
+		return HandlerFunc(func(r *http.Request, f *Factory) DataResponse {
 			var captured bool
 			capturedWriter := &capturedResponse{
-				capturedResp: dr.DataResponse{}, // Empty, status = 0
+				capturedResp: DataResponse{}, // Empty, status = 0
 			}
 
 			// Create a dummy handler that captures the response
@@ -51,7 +32,7 @@ func WrapChiMiddleware(chiMiddleware func(http.Handler) http.Handler) dr.Middlew
 			})
 
 			// Execute chi middleware
-			chiMiddleware(dummyHandler).ServeHTTP(capturedWriter, r)
+			Middleware(dummyHandler).ServeHTTP(capturedWriter, r)
 
 			if !captured {
 				statusCode := capturedWriter.capturedResp.StatusCode()
@@ -70,4 +51,21 @@ func WrapChiMiddleware(chiMiddleware func(http.Handler) http.Handler) dr.Middlew
 			return capturedWriter.capturedResp
 		})
 	}
+}
+
+type capturedResponse struct {
+	capturedResp DataResponse
+}
+
+func (wr *capturedResponse) Header() http.Header {
+	return wr.capturedResp.Header()
+}
+
+func (wr *capturedResponse) Write(b []byte) (int, error) {
+	// Silently ignore writes - body will be managed by DataResponse
+	return len(b), nil
+}
+
+func (wr *capturedResponse) WriteHeader(statusCode int) {
+	wr.capturedResp = wr.capturedResp.WithStatusCode(statusCode)
 }

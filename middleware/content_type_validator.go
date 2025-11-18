@@ -55,7 +55,7 @@ func ContentTypeValidator(opts ContentTypeValidatorOptions) dr.Middleware {
 			}
 
 			// Get Content-Type header
-			contentType := r.Header.Get("Content-Type")
+			contentType := r.Header.Get(dr.HeaderContentType)
 
 			// Validate Content-Type
 			if !isAllowedContentType(contentType, opts.AllowedTypes) {
@@ -115,7 +115,7 @@ func isAllowedContentType(contentType string, allowedTypes []string) bool {
 // JSONOnly creates a middleware that only allows application/json Content-Type.
 func JSONOnly() dr.Middleware {
 	return ContentTypeValidator(ContentTypeValidatorOptions{
-		AllowedTypes: []string{"application/json"},
+		AllowedTypes: []string{dr.ContentTypeJSON},
 		IgnoreEmpty:  true,
 		ErrorMessage: "Content-Type must be application/json",
 	})
@@ -124,7 +124,7 @@ func JSONOnly() dr.Middleware {
 // XMLOnly creates a middleware that only allows application/xml Content-Type.
 func XMLOnly() dr.Middleware {
 	return ContentTypeValidator(ContentTypeValidatorOptions{
-		AllowedTypes: []string{"application/xml", "text/xml"},
+		AllowedTypes: []string{dr.ContentTypeXML, dr.ContentTypeTextXML},
 		IgnoreEmpty:  true,
 		ErrorMessage: "Content-Type must be application/xml or text/xml",
 	})
@@ -134,9 +134,9 @@ func XMLOnly() dr.Middleware {
 func JSONOrXML() dr.Middleware {
 	return ContentTypeValidator(ContentTypeValidatorOptions{
 		AllowedTypes: []string{
-			"application/json",
-			"application/xml",
-			"text/xml",
+			dr.ContentTypeJSON,
+			dr.ContentTypeXML,
+			dr.ContentTypeTextXML,
 		},
 		IgnoreEmpty:  true,
 		ErrorMessage: "Content-Type must be application/json or application/xml",
@@ -147,11 +147,11 @@ func JSONOrXML() dr.Middleware {
 func APIContentTypes() dr.Middleware {
 	return ContentTypeValidator(ContentTypeValidatorOptions{
 		AllowedTypes: []string{
-			"application/json",
-			"application/xml",
-			"text/xml",
-			"application/x-www-form-urlencoded",
-			"multipart/form-data",
+			dr.ContentTypeJSON,
+			dr.ContentTypeXML,
+			dr.ContentTypeTextXML,
+			dr.ContentTypeForm,
+			dr.ContentTypeMultipartForm,
 		},
 		IgnoreEmpty: true,
 	})

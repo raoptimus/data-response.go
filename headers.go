@@ -19,15 +19,15 @@ const (
 
 	// Request Headers
 
-	HeaderAccept             = "Accept"
-	HeaderAcceptEncoding     = "Accept-Encoding"
-	HeaderAcceptLanguage     = "Accept-Language"
-	HeaderAuthorization      = "Authorization"
-	HeaderHost               = "Host"
-	HeaderIfModifiedSince    = "If-Modified-Since"
-	HeaderIfNoneMatch        = "If-None-Match"
-	HeaderUserAgent          = "User-Agent"
-	HeaderReferer = "Referer"
+	HeaderAccept          = "Accept"
+	HeaderAcceptEncoding  = "Accept-Encoding"
+	HeaderAcceptLanguage  = "Accept-Language"
+	HeaderAuthorization   = "Authorization"
+	HeaderHost            = "Host"
+	HeaderIfModifiedSince = "If-Modified-Since"
+	HeaderIfNoneMatch     = "If-None-Match"
+	HeaderUserAgent       = "User-Agent"
+	HeaderReferer         = "Referer"
 
 	// Response Headers
 
@@ -81,7 +81,7 @@ const (
 	HeaderXRateLimitLimit     = "X-RateLimit-Limit"
 	HeaderXRateLimitRemaining = "X-RateLimit-Remaining"
 	HeaderXRateLimitReset     = "X-RateLimit-Reset"
-	HeaderAPIVersion = "API-Version"
+	HeaderAPIVersion          = "API-Version"
 )
 
 // Common header values as constants.
@@ -92,11 +92,12 @@ const (
 	ContentTypeJSONCharsetUTF8  = "application/json; charset=utf-8"
 	ContentTypeXML              = "application/xml"
 	ContentTypeXMLCharsetUTF8   = "application/xml; charset=utf-8"
+	ContentTypeTextXML          = "text/xml"
 	ContentTypeHTML             = "text/html"
 	ContentTypeHTMLCharsetUTF8  = "text/html; charset=utf-8"
 	ContentTypePlain            = "text/plain"
 	ContentTypePlainCharsetUTF8 = "text/plain; charset=utf-8"
-	ContentTypeJavascript = "application/javascript"
+	ContentTypeJavascript       = "application/javascript"
 	ContentTypeForm             = "application/x-www-form-urlencoded"
 	ContentTypeMultipartForm    = "multipart/form-data"
 	ContentTypeOctetStream      = "application/octet-stream"

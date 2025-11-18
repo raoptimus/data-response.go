@@ -48,7 +48,7 @@ func main() {
 	mux.WithMiddleware(
 		middleware.DefaultCompression(),
 		middleware.ContentNegotiator(formatterMap),
-		middleware.Logging(),
+		middleware.LoggingDefault(),
 	)
 
 	mux.HandleFunc("/", func(r *http.Request, f *dr.Factory) dr.DataResponse {

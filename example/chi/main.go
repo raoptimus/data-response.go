@@ -41,13 +41,13 @@ func main() {
 
 	// Add global middleware
 	r.WithMiddleware(
-		middleware.Logging(),
+		middleware.LoggingDefault(),
 		middleware.Recovery(),
 		middleware.Compression(middleware.CompressionOptions{
 			Level:   middleware.CompressionLevelDefault,
 			MinSize: 1024,
 		}),
-		chiadapter.WrapChiMiddleware(
+		dr.WrapMiddleware(
 			chimiddleware.BasicAuth("", map[string]string{"user": "pass"}),
 		),
 	)
