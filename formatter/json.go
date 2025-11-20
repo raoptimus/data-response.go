@@ -12,12 +12,12 @@ import (
 	"bytes"
 
 	json "github.com/json-iterator/go"
-	dr "github.com/raoptimus/data-response.go/v2"
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
 // JSON is a JSON response formatter.
 type JSON struct {
-	dr.BaseFormatter
+	response.BaseFormatter
 	Indent bool
 }
 
@@ -32,9 +32,9 @@ func NewJSONIndent() *JSON {
 }
 
 // Format converts DataResponse to formatted JSON.
-func (f *JSON) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
+func (f *JSON) Format(resp *response.DataResponse) (response.FormattedResponse, error) {
 	if resp.IsBinary() {
-		return dr.FormattedResponse{}, dr.NewError(500, "cannot format binary as JSON")
+		return response.FormattedResponse{}, response.NewError(errCode500, "cannot format binary as JSON")
 	}
 
 	data := resp.Data()
@@ -42,8 +42,7 @@ func (f *JSON) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
 	if data == nil {
 		body := []byte("null")
 
-		return dr.FormattedResponse{
-			ContentType: f.ContentType(),
+		return response.FormattedResponse{
 			Stream:     bytes.NewReader(body),
 			StreamSize: int64(len(body)),
 		}, nil
@@ -57,17 +56,16 @@ func (f *JSON) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
 	}
 
 	if err := encoder.Encode(data); err != nil {
-		return dr.FormattedResponse{}, dr.WrapError(500, err, "failed to encode JSON")
+		return response.FormattedResponse{}, response.WrapError(errCode500, err, "failed to encode JSON")
 	}
 
-	return dr.FormattedResponse{
-		ContentType: f.ContentType(),
-		Stream: bytes.NewReader(buf.Bytes()),
+	return response.FormattedResponse{
+		Stream:     bytes.NewReader(buf.Bytes()),
 		StreamSize: int64(buf.Len()),
 	}, nil
 }
 
 // ContentType returns application/json.
 func (f *JSON) ContentType() string {
-	return dr.ContentTypeJSON
+	return response.ContentTypeJSON
 }

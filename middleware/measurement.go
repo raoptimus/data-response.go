@@ -10,14 +10,15 @@ package middleware
 
 import (
 	"net/http"
-	"regexp"
 	"time"
 
 	dr "github.com/raoptimus/data-response.go/v2"
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
 type MetricsData struct {
 	StatusCode int
+	Host       string
 	Method     string
 	Route      string
 	Elapsed    time.Duration
@@ -28,29 +29,17 @@ type MetricsService interface {
 	Responded(data MetricsData)
 }
 
-type MatchedRoutePatternFunc func(r *http.Request) string
-
-var patternPlaceholdersRegxp = regexp.MustCompile(`{([a-zA-Z0-9]+).*?}`)
-
-func Measurement(serv MetricsService, patternFunc MatchedRoutePatternFunc) dr.Middleware {
+func Measurement(serv MetricsService) dr.Middleware {
 	return func(next dr.Handler) dr.Handler {
-		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
-			start := RequestStartTime(r.Context())
+		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) *response.DataResponse {
+			start := response.RequestStartTime(r.Context())
 			resp := next.Handle(r, f)
-
-			var routePattern string
-			if patternFunc != nil {
-				routePattern = patternFunc(r)
-			}
-
-			if len(routePattern) > 0 {
-				routePattern = patternPlaceholdersRegxp.ReplaceAllString(routePattern, `$1`)
-			}
 
 			serv.Responded(MetricsData{
 				StatusCode: resp.StatusCode(),
+				Host:       r.Host,
 				Method:     r.Method,
-				Route:      routePattern,
+				Route:      r.Pattern,
 				Elapsed:    time.Since(start),
 			})
 

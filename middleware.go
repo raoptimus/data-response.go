@@ -10,16 +10,19 @@ package dataresponse
 
 import (
 	"net/http"
+
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
 // WrapMiddleware converts std middleware to DataResponse middleware.
 // The chi middleware will be executed, but DataResponse will be returned from handler.
 func WrapMiddleware(stdM func(http.Handler) http.Handler) Middleware {
 	return func(next Handler) Handler {
-		return HandlerFunc(func(r *http.Request, f *Factory) DataResponse {
+		return HandlerFunc(func(r *http.Request, f *Factory) *response.DataResponse {
 			var captured bool
 			capturedWriter := &capturedResponse{
-				capturedResp: new(0, nil).WithFormatter(f.formatter),
+				capturedResp: f.createDataResponse(0, nil).
+					WithFormatter(f.formatter),
 			}
 
 			// Create a dummy handler that captures the response
@@ -54,7 +57,7 @@ func WrapMiddleware(stdM func(http.Handler) http.Handler) Middleware {
 }
 
 type capturedResponse struct {
-	capturedResp DataResponse
+	capturedResp *response.DataResponse
 }
 
 func (wr *capturedResponse) Header() http.Header {

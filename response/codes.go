@@ -6,7 +6,7 @@
  * @link https://github.com/raoptimus/data-response.go
  */
 
-package dataresponse
+package response
 
 import "net/http"
 

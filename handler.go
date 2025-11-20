@@ -8,19 +8,23 @@
 
 package dataresponse
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/raoptimus/data-response.go/v2/response"
+)
 
 // Handler defines a handler that returns DataResponse instead of writing to http.ResponseWriter.
 // This allows for more functional and composable middleware.
 type Handler interface {
-	Handle(r *http.Request, f *Factory) DataResponse
+	Handle(r *http.Request, f *Factory) *response.DataResponse
 }
 
 // HandlerFunc is a function adapter for Handler interface.
-type HandlerFunc func(r *http.Request, f *Factory) DataResponse
+type HandlerFunc func(r *http.Request, f *Factory) *response.DataResponse
 
 // Handle calls f(r).
-func (hf HandlerFunc) Handle(r *http.Request, f *Factory) DataResponse {
+func (hf HandlerFunc) Handle(r *http.Request, f *Factory) *response.DataResponse {
 	return hf(r, f)
 }
 
@@ -28,21 +32,22 @@ func (hf HandlerFunc) Handle(r *http.Request, f *Factory) DataResponse {
 func WrapHandler(h Handler, f *Factory) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rw := &responseRecorder{ResponseWriter: w}
-		resp := h.Handle(r, f)
-		// todo not finally context
+		ctx := response.WithRequestStartTime(r.Context())
+		resp := h.Handle(r.WithContext(ctx), f)
+
 		if err := Write(rw, resp); err != nil {
 			if rw.Written() { // already written
-				f.logger.Error(r.Context(), "failed to write response", "error", err.Error())
+				f.logger.Error(ctx, "failed to write response", "error", err.Error())
 				return
 			}
 
-			errResp := f.InternalError(r.Context(), err)
+			errResp := f.InternalError(ctx, err)
 			if err := Write(rw, errResp); err != nil {
-				f.logger.Error(r.Context(), "failed to write error response", "error", err.Error())
+				f.logger.Error(ctx, "failed to write error response", "error", err.Error())
 
 				// last chance
 				if !rw.Written() {
-					w.Header().Set(HeaderContentType, MimeTypePlainText.String())
+					w.Header().Set(response.HeaderContentType, response.MimeTypePlainText.String())
 					w.WriteHeader(http.StatusInternalServerError)
 					_, _ = w.Write([]byte("Internal Server Error"))
 				}

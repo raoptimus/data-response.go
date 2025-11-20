@@ -19,6 +19,7 @@ import (
 	"github.com/andybalholm/brotli"
 	"github.com/pkg/errors"
 	dr "github.com/raoptimus/data-response.go/v2"
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
 var ErrUnknownEncoding = errors.New("unknow encoding")
@@ -43,7 +44,12 @@ const (
 	CompressionLevelBest CompressionLevel = 9
 )
 
-const defaultMinSizeToCompress = 1024 // 1 KB
+const (
+	compressionMethodBR      = "br"
+	compressionMethodDeflate = "deflate"
+	compressionMethodGzip    = "gzip"
+	defaultMinSizeToCompress = 1024 // 1 KB
+)
 
 // CompressionOptions configures compression middleware.
 type CompressionOptions struct {
@@ -69,7 +75,7 @@ func Compression(opts CompressionOptions) dr.Middleware {
 	}
 
 	return func(next dr.Handler) dr.Handler {
-		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
+		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) *response.DataResponse {
 			// Get Accept-Encoding header
 			acceptEncoding := r.Header.Get("Accept-Encoding")
 
@@ -159,24 +165,28 @@ func selectEncoding(acceptEncoding string) string {
 		enc = strings.TrimSpace(strings.ToLower(enc))
 
 		switch enc {
-		case "br":
+		case compressionMethodBR:
 			supportBrotli = true
-		case "gzip":
+		case compressionMethodGzip:
 			supportGzip = true
-		case "deflate":
+		case compressionMethodDeflate:
 			supportDeflate = true
+		}
+
+		if supportBrotli {
+			break // because its priority
 		}
 	}
 
 	// Select best encoding
 	if supportBrotli {
-		return "br"
+		return compressionMethodBR
 	}
 	if supportGzip {
-		return "gzip"
+		return compressionMethodGzip
 	}
 	if supportDeflate {
-		return "deflate"
+		return compressionMethodDeflate
 	}
 
 	return ""
@@ -215,20 +225,20 @@ func shouldCompress(contentType string, allowedTypes []string) bool {
 }
 
 // compressBody compresses data using specified encoding.
-func compressBody(body dr.FormattedResponse, encoding string, level int) (dr.FormattedResponse, error) {
+func compressBody(body response.FormattedResponse, encoding string, level int) (response.FormattedResponse, error) {
 	buf := new(bytes.Buffer)
 	var writer io.WriteCloser
 	var err error
 
 	switch encoding {
-	case "br":
+	case compressionMethodBR:
 		// Brotli compression
 		if level < 0 {
 			level = brotli.DefaultCompression
 		}
 		writer = brotli.NewWriterLevel(buf, level)
 
-	case "gzip":
+	case compressionMethodGzip:
 		// Gzip compression
 		if level < 0 {
 			writer, err = gzip.NewWriterLevel(buf, gzip.DefaultCompression)
@@ -236,10 +246,10 @@ func compressBody(body dr.FormattedResponse, encoding string, level int) (dr.For
 			writer, err = gzip.NewWriterLevel(buf, level)
 		}
 		if err != nil {
-			return dr.FormattedResponse{}, err
+			return response.FormattedResponse{}, err
 		}
 
-	case "deflate":
+	case compressionMethodDeflate:
 		// Deflate compression
 		if level < 0 {
 			writer, err = flate.NewWriter(buf, flate.DefaultCompression)
@@ -247,11 +257,11 @@ func compressBody(body dr.FormattedResponse, encoding string, level int) (dr.For
 			writer, err = flate.NewWriter(buf, level)
 		}
 		if err != nil {
-			return dr.FormattedResponse{}, err
+			return response.FormattedResponse{}, err
 		}
 
 	default:
-		return dr.FormattedResponse{}, errors.WithStack(ErrUnknownEncoding)
+		return response.FormattedResponse{}, errors.WithStack(ErrUnknownEncoding)
 	}
 
 	// Write and close
@@ -259,17 +269,16 @@ func compressBody(body dr.FormattedResponse, encoding string, level int) (dr.For
 	if err != nil {
 		writer.Close()
 
-		return dr.FormattedResponse{}, err
+		return response.FormattedResponse{}, err
 	}
 
 	if err := writer.Close(); err != nil {
-		return dr.FormattedResponse{}, err
+		return response.FormattedResponse{}, err
 	}
 
-	return dr.FormattedResponse{
-		ContentType: body.ContentType,
-		Stream:      bytes.NewReader(buf.Bytes()),
-		StreamSize:  int64(buf.Len()),
+	return response.FormattedResponse{
+		Stream:     bytes.NewReader(buf.Bytes()),
+		StreamSize: int64(buf.Len()),
 	}, nil
 }
 
@@ -280,9 +289,9 @@ func DefaultCompression() dr.Middleware {
 		MinSize: defaultMinSizeToCompress,
 		ContentTypes: []string{
 			"text/*",
-			dr.ContentTypeJSON,
-			dr.ContentTypeXML,
-			dr.ContentTypeJavascript,
+			response.ContentTypeJSON,
+			response.ContentTypeXML,
+			response.ContentTypeJavascript,
 		},
 	})
 }

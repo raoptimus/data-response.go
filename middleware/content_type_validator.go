@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	dr "github.com/raoptimus/data-response.go/v2"
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
 // ContentTypeValidatorOptions configures content type validation.
@@ -43,7 +44,7 @@ func ContentTypeValidator(opts ContentTypeValidatorOptions) dr.Middleware {
 	}
 
 	return func(next dr.Handler) dr.Handler {
-		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
+		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) *response.DataResponse {
 			// Check if method should be validated
 			if !methodMap[r.Method] {
 				return next.Handle(r, f)
@@ -55,7 +56,7 @@ func ContentTypeValidator(opts ContentTypeValidatorOptions) dr.Middleware {
 			}
 
 			// Get Content-Type header
-			contentType := r.Header.Get(dr.HeaderContentType)
+			contentType := r.Header.Get(response.HeaderContentType)
 
 			// Validate Content-Type
 			if !isAllowedContentType(contentType, opts.AllowedTypes) {
@@ -115,7 +116,7 @@ func isAllowedContentType(contentType string, allowedTypes []string) bool {
 // JSONOnly creates a middleware that only allows application/json Content-Type.
 func JSONOnly() dr.Middleware {
 	return ContentTypeValidator(ContentTypeValidatorOptions{
-		AllowedTypes: []string{dr.ContentTypeJSON},
+		AllowedTypes: []string{response.ContentTypeJSON},
 		IgnoreEmpty:  true,
 		ErrorMessage: "Content-Type must be application/json",
 	})
@@ -124,7 +125,7 @@ func JSONOnly() dr.Middleware {
 // XMLOnly creates a middleware that only allows application/xml Content-Type.
 func XMLOnly() dr.Middleware {
 	return ContentTypeValidator(ContentTypeValidatorOptions{
-		AllowedTypes: []string{dr.ContentTypeXML, dr.ContentTypeTextXML},
+		AllowedTypes: []string{response.ContentTypeXML, response.ContentTypeTextXML},
 		IgnoreEmpty:  true,
 		ErrorMessage: "Content-Type must be application/xml or text/xml",
 	})
@@ -134,9 +135,9 @@ func XMLOnly() dr.Middleware {
 func JSONOrXML() dr.Middleware {
 	return ContentTypeValidator(ContentTypeValidatorOptions{
 		AllowedTypes: []string{
-			dr.ContentTypeJSON,
-			dr.ContentTypeXML,
-			dr.ContentTypeTextXML,
+			response.ContentTypeJSON,
+			response.ContentTypeXML,
+			response.ContentTypeTextXML,
 		},
 		IgnoreEmpty:  true,
 		ErrorMessage: "Content-Type must be application/json or application/xml",
@@ -147,11 +148,11 @@ func JSONOrXML() dr.Middleware {
 func APIContentTypes() dr.Middleware {
 	return ContentTypeValidator(ContentTypeValidatorOptions{
 		AllowedTypes: []string{
-			dr.ContentTypeJSON,
-			dr.ContentTypeXML,
-			dr.ContentTypeTextXML,
-			dr.ContentTypeForm,
-			dr.ContentTypeMultipartForm,
+			response.ContentTypeJSON,
+			response.ContentTypeXML,
+			response.ContentTypeTextXML,
+			response.ContentTypeForm,
+			response.ContentTypeMultipartForm,
 		},
 		IgnoreEmpty: true,
 	})

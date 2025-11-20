@@ -13,11 +13,12 @@ import (
 	"strings"
 
 	dr "github.com/raoptimus/data-response.go/v2"
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
-func ContentNegotiator(formatters map[string]dr.Formatter) dr.Middleware {
+func ContentNegotiator(formatters map[string]response.Formatter) dr.Middleware {
 	return func(next dr.Handler) dr.Handler {
-		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
+		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) *response.DataResponse {
 			accept := r.Header.Get("Accept")
 			formatter := selectFormatter(accept, formatters, f.Formatter())
 
@@ -31,7 +32,12 @@ func ContentNegotiator(formatters map[string]dr.Formatter) dr.Middleware {
 	}
 }
 
-func selectFormatter(accept string, formatters map[string]dr.Formatter, defaultFormatter dr.Formatter) dr.Formatter {
+//nolint:ireturn,nolintlint // its ok
+func selectFormatter(
+	accept string,
+	formatters map[string]response.Formatter,
+	defaultFormatter response.Formatter,
+) response.Formatter {
 	if accept == "" {
 		return defaultFormatter
 	}

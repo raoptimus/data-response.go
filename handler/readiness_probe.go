@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	dr "github.com/raoptimus/data-response.go/v2"
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
 type ReadinessService interface {
@@ -19,7 +20,7 @@ func (s *dummyReadinessService) Ready() error {
 var DummyReadinessService = &dummyReadinessService{}
 
 func ReadinessProbe(serv ReadinessService) dr.HandlerFunc {
-	return func(r *http.Request, f *dr.Factory) dr.DataResponse {
+	return func(r *http.Request, f *dr.Factory) *response.DataResponse {
 		if err := serv.Ready(); err != nil {
 			return f.ServiceUnavailable(r.Context(), err.Error())
 		} else {

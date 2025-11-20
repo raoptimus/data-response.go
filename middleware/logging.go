@@ -18,6 +18,7 @@ import (
 	"time"
 
 	dr "github.com/raoptimus/data-response.go/v2"
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
 const DefaultLogTemplate = `{{.RemoteAddr}} - {{.User}} [{{.Time}}] "{{.Method}} {{.URI}} {{.Proto}}" {{.Status}} {{.Size}} "{{.Referer}}" "{{.UserAgent}}" {{.Duration}}`
@@ -114,13 +115,13 @@ func Logging(cfg *LoggingConfig) (dr.Middleware, error) {
 	}
 
 	return func(next dr.Handler) dr.Handler {
-		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
+		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) *response.DataResponse {
 			// Skip logging for certain paths
 			if skipPaths[r.URL.Path] {
 				return next.Handle(r, f)
 			}
 
-			start := RequestStartTime(r.Context())
+			start := response.RequestStartTime(r.Context())
 			resp := next.Handle(r, f)
 			duration := time.Since(start)
 
@@ -134,12 +135,12 @@ func Logging(cfg *LoggingConfig) (dr.Middleware, error) {
 				Referer:    r.Referer(),
 				UserAgent:  r.UserAgent(),
 				Status:     resp.StatusCode(),
-				Size:       resp.HeaderLine(dr.HeaderContentLength),
+				Size:       resp.HeaderLine(response.HeaderContentLength),
 				Time:       start.Format(cfg.TimeFormat),
 				Duration:   duration.String(),
 				User:       "-",
-				RequestID:  resp.HeaderLine(dr.HeaderXRequestID),
-				Custom:     make(map[string]interface{}),
+				RequestID:  resp.HeaderLine(response.HeaderXRequestID),
+				Custom:     make(map[string]any),
 			}
 
 			// Extract common values from context
@@ -187,7 +188,7 @@ func LoggingDefault() dr.Middleware {
 		if err != nil {
 			// This should never happen with default config, but handle it gracefully
 			defaultLoggingMiddleware = func(next dr.Handler) dr.Handler {
-				return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
+				return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) *response.DataResponse {
 					f.Logger().Error(r.Context(), "failed to initialize default logging middleware: "+err.Error())
 
 					return next.Handle(r, f)

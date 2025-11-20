@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	dr "github.com/raoptimus/data-response.go/v2"
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
 type VersionData struct {
@@ -25,13 +26,14 @@ func (d *VersionData) String() string {
 	)
 }
 
+//nolint:ireturn,nolintlint // its ok
 func AppVersion(data *VersionData) dr.Handler {
 	return AppVersionFunc(data)
 }
 
 func AppVersionFunc(data *VersionData) dr.HandlerFunc {
-	return func(r *http.Request, f *dr.Factory) dr.DataResponse {
+	return func(r *http.Request, f *dr.Factory) *response.DataResponse {
 		return f.Success(r.Context(), data.String()).
-			WithHeader(dr.HeaderXContentTypeOptions, dr.ContentTypeOptionsNoSniff)
+			WithHeader(response.HeaderXContentTypeOptions, response.ContentTypeOptionsNoSniff)
 	}
 }

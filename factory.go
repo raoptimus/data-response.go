@@ -14,17 +14,19 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 
 	"github.com/raoptimus/data-response.go/pkg/logger"
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
 // Factory creates standardized HTTP responses.
 type Factory struct {
-	logger Logger
+	logger            Logger
 	verbosity         bool
-	formatter         Formatter
+	formatter         response.Formatter
 	debugMode         bool
 	errorBuilder      ErrorBuilder
 	validationBuilder ValidationErrorBuilder
@@ -56,7 +58,7 @@ func WithVerbosity(verbose bool) Option {
 }
 
 // WithFormatter sets the default formatter for this factory.
-func WithFormatter(formatter Formatter) Option {
+func WithFormatter(formatter response.Formatter) Option {
 	return func(f *Factory) {
 		f.formatter = formatter
 	}
@@ -104,32 +106,23 @@ func New(opts ...Option) *Factory {
 	return f
 }
 
+//nolint:ireturn,nolintlint // its ok
 func (f *Factory) Logger() Logger {
 	return f.logger
 }
 
 // Success creates a 200 OK response.
-func (f *Factory) Success(ctx context.Context, data any) DataResponse {
+func (f *Factory) Success(ctx context.Context, data any) *response.DataResponse {
 	if f.debugMode {
 		f.logger.Debug(ctx, "success response")
 	}
 
-	return DataResponse{
-		formatter: f.formatter,
-		statusCode: http.StatusOK,
-		data:       data,
-		header:     make(http.Header),
-	}
+	return f.createDataResponse(http.StatusOK, data)
 }
 
 // Created creates a 201 Created response.
-func (f *Factory) Created(ctx context.Context, data any, location string) DataResponse {
-	resp := DataResponse{
-		formatter: f.formatter,
-		statusCode: http.StatusCreated,
-		data:       data,
-		header:     make(http.Header),
-	}
+func (f *Factory) Created(ctx context.Context, data any, location string) *response.DataResponse {
+	resp := f.createDataResponse(http.StatusCreated, data)
 
 	if location != "" {
 		resp = resp.WithHeader("Location", location)
@@ -143,34 +136,25 @@ func (f *Factory) Created(ctx context.Context, data any, location string) DataRe
 }
 
 // Accepted creates a 202 Accepted response.
-func (f *Factory) Accepted(ctx context.Context, data any) DataResponse {
+func (f *Factory) Accepted(ctx context.Context, data any) *response.DataResponse {
 	if f.debugMode {
 		f.logger.Debug(ctx, "accepted response")
 	}
 
-	return DataResponse{
-		formatter: f.formatter,
-		statusCode: http.StatusAccepted,
-		data:       data,
-		header:     make(http.Header),
-	}
+	return f.createDataResponse(http.StatusAccepted, data)
 }
 
 // NoContent creates a 204 No Content response.
-func (f *Factory) NoContent(ctx context.Context) DataResponse {
+func (f *Factory) NoContent(ctx context.Context) *response.DataResponse {
 	if f.debugMode {
 		f.logger.Debug(ctx, "no content response")
 	}
 
-	return DataResponse{
-		formatter: f.formatter,
-		statusCode: http.StatusNoContent,
-		header:     make(http.Header),
-	}
+	return f.createDataResponse(http.StatusNoContent, nil)
 }
 
 // Error creates an error response with custom data builder.
-func (f *Factory) Error(ctx context.Context, status int, message string) DataResponse {
+func (f *Factory) Error(ctx context.Context, status int, message string) *response.DataResponse {
 	if message == "" {
 		message = http.StatusText(status)
 	}
@@ -181,16 +165,11 @@ func (f *Factory) Error(ctx context.Context, status int, message string) DataRes
 
 	data := f.errorBuilder(ctx, status, message, nil)
 
-	return DataResponse{
-		formatter: f.formatter,
-		statusCode: status,
-		data:       data,
-		header:     make(http.Header),
-	}
+	return f.createDataResponse(http.StatusInternalServerError, data)
 }
 
 // InternalError creates a 500 Internal Server Error response.
-func (f *Factory) InternalError(ctx context.Context, err error) DataResponse {
+func (f *Factory) InternalError(ctx context.Context, err error) *response.DataResponse {
 	f.logger.Error(ctx, "internal server error", "error", err.Error())
 
 	message := "Internal server error"
@@ -201,7 +180,7 @@ func (f *Factory) InternalError(ctx context.Context, err error) DataResponse {
 			"error": err.Error(),
 		}
 
-		var e *Error
+		var e *response.Error
 		if errors.As(err, &e) {
 			if st := e.StackTrace(); st != "" {
 				errData["stack_trace"] = st
@@ -213,46 +192,41 @@ func (f *Factory) InternalError(ctx context.Context, err error) DataResponse {
 
 	data := f.errorBuilder(ctx, http.StatusInternalServerError, message, details)
 
-	return DataResponse{
-		formatter: f.formatter,
-		statusCode: http.StatusInternalServerError,
-		data:       data,
-		header:     make(http.Header),
-	}
+	return f.createDataResponse(http.StatusInternalServerError, data)
 }
 
 // BadRequest creates a 400 Bad Request response.
-func (f *Factory) BadRequest(ctx context.Context, message string) DataResponse {
+func (f *Factory) BadRequest(ctx context.Context, message string) *response.DataResponse {
 	return f.Error(ctx, http.StatusBadRequest, message)
 }
 
 // Unauthorized creates a 401 Unauthorized response.
-func (f *Factory) Unauthorized(ctx context.Context, message string) DataResponse {
+func (f *Factory) Unauthorized(ctx context.Context, message string) *response.DataResponse {
 	return f.Error(ctx, http.StatusUnauthorized, message)
 }
 
 // ServiceUnavailable creates a 503 Service Unavailable response
-func (f *Factory) ServiceUnavailable(ctx context.Context, message string) DataResponse {
+func (f *Factory) ServiceUnavailable(ctx context.Context, message string) *response.DataResponse {
 	return f.Error(ctx, http.StatusServiceUnavailable, message)
 }
 
 // Forbidden creates a 403 Forbidden response.
-func (f *Factory) Forbidden(ctx context.Context, message string) DataResponse {
+func (f *Factory) Forbidden(ctx context.Context, message string) *response.DataResponse {
 	return f.Error(ctx, http.StatusForbidden, message)
 }
 
 // NotFound creates a 404 Not Found response.
-func (f *Factory) NotFound(ctx context.Context, message string) DataResponse {
+func (f *Factory) NotFound(ctx context.Context, message string) *response.DataResponse {
 	return f.Error(ctx, http.StatusNotFound, message)
 }
 
 // Conflict creates a 409 Conflict response.
-func (f *Factory) Conflict(ctx context.Context, message string) DataResponse {
+func (f *Factory) Conflict(ctx context.Context, message string) *response.DataResponse {
 	return f.Error(ctx, http.StatusConflict, message)
 }
 
 // ValidationError creates a 422 Unprocessable Entity response.
-func (f *Factory) ValidationError(ctx context.Context, message string, attributeErrors map[string][]string) DataResponse {
+func (f *Factory) ValidationError(ctx context.Context, message string, attributeErrors map[string][]string) *response.DataResponse {
 	if f.debugMode {
 		f.logger.Info(ctx, "validation error", "errors_count", len(attributeErrors))
 	}
@@ -263,65 +237,58 @@ func (f *Factory) ValidationError(ctx context.Context, message string, attribute
 
 	data := f.validationBuilder(ctx, message, attributeErrors)
 
-	return DataResponse{
-		formatter: f.formatter,
-		statusCode: http.StatusUnprocessableEntity,
-		data:       data,
-		header:     make(http.Header),
-	}
+	return f.createDataResponse(http.StatusUnprocessableEntity, data)
 }
 
 // Binary creates a binary file response from io.Reader.
-func (f *Factory) Binary(ctx context.Context, reader io.Reader, filename string, size int64) DataResponse {
+func (f *Factory) Binary(ctx context.Context, reader io.ReadCloser, filename string, size int64) *response.DataResponse {
 	if f.debugMode {
 		f.logger.Debug(ctx, "binary response", "filename", filename, "size", size)
 	}
 
 	// Detect Content-Type from filename
 	ext := filepath.Ext(filename)
-	contentType := MimeTypeFromExtension(ext).String()
+	contentType := response.MimeTypeFromExtension(ext).String()
 
-	return DataResponse{
-		formatter: f.formatter,
-		formatted: FormattedResponse{
-			ContentType: contentType,
-			Stream:      reader,
-			StreamSize:  size,
-		},
+	resp := f.createDataResponse(http.StatusOK, nil).
+		WithFormatted(response.FormattedResponse{
+			Stream:     reader,
+			StreamSize: size,
+		}).
+		WithFile(reader, path.Base(filename)).
+		WithContentType(contentType)
 
-		statusCode: http.StatusOK,
-		header: make(http.Header),
-
-		isBinary: true,
-		filename: filename,
-	}
+	return resp
 }
 
 // File creates a response from a file on disk.
-func (f *Factory) File(ctx context.Context, filepath string) DataResponse {
-	file, err := os.Open(filepath)
+func (f *Factory) File(ctx context.Context, filename string) *response.DataResponse {
+	file, err := os.Open(filename)
 	if err != nil {
-		return f.InternalError(ctx, WrapError(http.StatusInternalServerError, err, "failed to open file"))
+		return f.InternalError(ctx, response.WrapError(http.StatusInternalServerError, err, "failed to open file"))
 	}
 
 	stat, err := file.Stat()
 	if err != nil {
 		file.Close()
-		return f.InternalError(ctx, WrapError(http.StatusInternalServerError, err, "failed to stat file"))
+
+		return f.InternalError(ctx, response.WrapError(http.StatusInternalServerError, err, "failed to stat file"))
 	}
 
 	if f.debugMode {
-		f.logger.Debug(ctx, "file response", "path", filepath, "size", stat.Size())
+		f.logger.Debug(ctx, "file response", "path", filename, "size", stat.Size())
 	}
 
-	resp := f.Binary(ctx, file, stat.Name(), stat.Size())
-	resp.closer = file
+	resp := f.Binary(ctx, file, stat.Name(), stat.Size()).
+		WithFile(file, path.Base(filename))
 
 	return resp
 }
 
 // Formatter returns the current default formatter for this factory.
-func (f *Factory) Formatter() Formatter {
+//
+//nolint:ireturn,nolintlint // its ok
+func (f *Factory) Formatter() response.Formatter {
 	return f.formatter
 }
 
@@ -335,11 +302,15 @@ func (f *Factory) Clone(opts ...Option) *Factory {
 	return &clone
 }
 
+func (f *Factory) createDataResponse(statusCode int, data any) *response.DataResponse {
+	return response.NewDataResponse(statusCode, data).WithFormatter(f.formatter)
+}
+
 // defaultErrorBuilder creates simple error structure.
 func defaultErrorBuilder(_ context.Context, status int, message string, details any) any {
 	return Template{
-		Code:   CodeFromStatus(status),
-		Status: strconv.Itoa(status),
+		Code:    response.CodeFromStatus(status),
+		Status:  strconv.Itoa(status),
 		Title:   message,
 		Details: details,
 	}
@@ -358,7 +329,7 @@ func defaultValidationErrorBuilder(_ context.Context, message string, attributeE
 	}
 
 	return Template{
-		Code:   CodeFromStatus(http.StatusUnprocessableEntity),
+		Code:   response.CodeFromStatus(http.StatusUnprocessableEntity),
 		Status: strconv.Itoa(http.StatusUnprocessableEntity),
 		Title:  message,
 		Errors: errorsData,
@@ -366,7 +337,9 @@ func defaultValidationErrorBuilder(_ context.Context, message string, attributeE
 }
 
 // defaultFormatter returns a minimal no-op formatter as fallback.
-func defaultFormatter() Formatter {
+//
+//nolint:ireturn,nolintlint // its ok
+func defaultFormatter() response.Formatter {
 	return &noopFormatter{}
 }
 
@@ -374,13 +347,13 @@ func defaultFormatter() Formatter {
 type noopFormatter struct{}
 
 // Format writes only the status code.
-func (noopFormatter) Format(_ DataResponse) (FormattedResponse, error) {
-	return FormattedResponse{}, nil
+func (noopFormatter) Format(_ *response.DataResponse) (response.FormattedResponse, error) {
+	return response.FormattedResponse{}, nil
 }
 
 // ContentType returns text/plain.
 func (noopFormatter) ContentType() string {
-	return ContentTypePlain
+	return response.ContentTypePlain
 }
 
 // CanFormatBinary returns false.

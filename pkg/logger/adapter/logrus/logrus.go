@@ -35,10 +35,10 @@ func (a *Logrus) Error(ctx context.Context, msg string, args ...any) {
 	a.logger.WithContext(ctx).WithFields(fields).Error(msg)
 }
 
-// argsToFields конвертирует variadic args в logrus.Fields
+// argsToFields converts variadic args in logrus.Fields
 // args должны быть в формате: key1, value1, key2, value2, ...
 func (a *Logrus) argsToFields(args []any) logrus.Fields {
-	fields := make(logrus.Fields)
+	fields := make(logrus.Fields, len(args))
 	for i := 0; i < len(args)-1; i += 2 {
 		if key, ok := args[i].(string); ok {
 			fields[key] = args[i+1]

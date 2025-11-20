@@ -12,12 +12,12 @@ import (
 	"bytes"
 	"encoding/xml"
 
-	dr "github.com/raoptimus/data-response.go/v2"
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
 // XML is an XML response formatter.
 type XML struct {
-	dr.BaseFormatter
+	response.BaseFormatter
 	Indent bool
 }
 
@@ -32,9 +32,9 @@ func NewXMLIndent() *XML {
 }
 
 // Format converts DataResponse to formatted XML.
-func (f *XML) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
+func (f *XML) Format(resp *response.DataResponse) (response.FormattedResponse, error) {
 	if resp.IsBinary() {
-		return dr.FormattedResponse{}, dr.NewError(500, "cannot format binary as XML")
+		return response.FormattedResponse{}, response.NewError(errCode500, "cannot format binary as XML")
 	}
 
 	// Serialize only resp.Data()
@@ -42,8 +42,7 @@ func (f *XML) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
 
 	if data == nil {
 		body := []byte("")
-		return dr.FormattedResponse{
-			ContentType: f.ContentType(),
+		return response.FormattedResponse{
 			Stream:     bytes.NewReader(body),
 			StreamSize: int64(len(body)),
 		}, nil
@@ -60,21 +59,20 @@ func (f *XML) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
 	}
 
 	if err := encoder.Encode(data); err != nil {
-		return dr.FormattedResponse{}, dr.WrapError(500, err, "failed to encode XML")
+		return response.FormattedResponse{}, response.WrapError(errCode500, err, "failed to encode XML")
 	}
 
 	if err := encoder.Flush(); err != nil {
-		return dr.FormattedResponse{}, dr.WrapError(500, err, "failed to flush XML encoder")
+		return response.FormattedResponse{}, response.WrapError(errCode500, err, "failed to flush XML encoder")
 	}
 
-	return dr.FormattedResponse{
-		ContentType: f.ContentType(),
-		Stream: bytes.NewReader(buf.Bytes()),
+	return response.FormattedResponse{
+		Stream:     bytes.NewReader(buf.Bytes()),
 		StreamSize: int64(buf.Len()),
 	}, nil
 }
 
 // ContentType returns application/xml.
 func (f *XML) ContentType() string {
-	return dr.ContentTypeXML
+	return response.ContentTypeXML
 }

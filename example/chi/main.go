@@ -8,13 +8,13 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	json "github.com/json-iterator/go"
 	"github.com/raoptimus/data-response.go/pkg/chiadapter"
 	slogadapter "github.com/raoptimus/data-response.go/pkg/logger/adapter/slog"
 	dr "github.com/raoptimus/data-response.go/v2"
 	"github.com/raoptimus/data-response.go/v2/formatter"
 	"github.com/raoptimus/data-response.go/v2/middleware"
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
 type User struct {
@@ -47,13 +47,13 @@ func main() {
 			Level:   middleware.CompressionLevelDefault,
 			MinSize: 1024,
 		}),
-		dr.WrapMiddleware(
-			chimiddleware.BasicAuth("", map[string]string{"user": "pass"}),
-		),
+		//dr.WrapMiddleware(
+		//	chimiddleware.BasicAuth("", map[string]string{"user": "pass"}),
+		//),
 	)
 
 	// Health check
-	r.Get("/health", func(r *http.Request, f *dr.Factory) dr.DataResponse {
+	r.Get("/health", func(r *http.Request, f *dr.Factory) *response.DataResponse {
 		return f.Success(r.Context(), map[string]string{
 			"status": "ok",
 		})
@@ -88,7 +88,7 @@ func main() {
 	http.ListenAndServe(":8080", r)
 }
 
-func listUsers(r *http.Request, f *dr.Factory) dr.DataResponse {
+func listUsers(r *http.Request, f *dr.Factory) *response.DataResponse {
 	users := []User{
 		{ID: 1, Name: "Alice", Email: "alice@example.com"},
 		{ID: 2, Name: "Bob", Email: "bob@example.com"},
@@ -97,7 +97,7 @@ func listUsers(r *http.Request, f *dr.Factory) dr.DataResponse {
 	return f.Success(r.Context(), users)
 }
 
-func getUser(r *http.Request, f *dr.Factory) dr.DataResponse {
+func getUser(r *http.Request, f *dr.Factory) *response.DataResponse {
 	// Get URL parameter using chi adapter
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
@@ -113,7 +113,7 @@ func getUser(r *http.Request, f *dr.Factory) dr.DataResponse {
 	return f.Success(r.Context(), user)
 }
 
-func createUser(r *http.Request, f *dr.Factory) dr.DataResponse {
+func createUser(r *http.Request, f *dr.Factory) *response.DataResponse {
 	var user User
 
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
@@ -125,7 +125,7 @@ func createUser(r *http.Request, f *dr.Factory) dr.DataResponse {
 	return f.Created(r.Context(), user, "/api/users/3")
 }
 
-func deleteUser(r *http.Request, f *dr.Factory) dr.DataResponse {
+func deleteUser(r *http.Request, f *dr.Factory) *response.DataResponse {
 	idStr := chi.URLParam(r, "id")
 	_, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -135,7 +135,7 @@ func deleteUser(r *http.Request, f *dr.Factory) dr.DataResponse {
 	return f.NoContent(r.Context())
 }
 
-func getStats(r *http.Request, f *dr.Factory) dr.DataResponse {
+func getStats(r *http.Request, f *dr.Factory) *response.DataResponse {
 	stats := map[string]interface{}{
 		"users":    100,
 		"requests": 1000,
@@ -147,7 +147,7 @@ func getStats(r *http.Request, f *dr.Factory) dr.DataResponse {
 
 func authMiddleware() dr.Middleware {
 	return func(next dr.Handler) dr.Handler {
-		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) dr.DataResponse {
+		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) *response.DataResponse {
 			token := r.Header.Get("Authorization")
 			if token != "Bearer secret" {
 				return f.Unauthorized(r.Context(), "invalid token")

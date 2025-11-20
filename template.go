@@ -8,6 +8,8 @@
 
 package dataresponse
 
+import "github.com/raoptimus/data-response.go/v2/response"
+
 type (
 	TemplateError struct {
 		Pointer string `json:"pointer,omitempty"` // Путь до свойства с проблемой
@@ -17,10 +19,10 @@ type (
 	}
 	TemplateErrors []TemplateError
 	Template       struct {
-		Code    HTTPCode       `json:"code,omitempty"`
-		Status  string         `json:"status,omitempty"`
-		Title   string         `json:"title,omitempty"`
-		Details any            `json:"details,omitempty"`
-		Errors  TemplateErrors `json:"errors,omitempty"`
+		Code    response.HTTPCode `json:"code,omitempty"`
+		Status  string            `json:"status,omitempty"`
+		Title   string            `json:"title,omitempty"`
+		Details any               `json:"details,omitempty"`
+		Errors  TemplateErrors    `json:"errors,omitempty"`
 	}
 )

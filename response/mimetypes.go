@@ -6,7 +6,7 @@
  * @link https://github.com/raoptimus/data-response.go
  */
 
-package dataresponse
+package response
 
 // MimeType represents a media type (MIME type) for HTTP Content-Type header.
 type MimeType string

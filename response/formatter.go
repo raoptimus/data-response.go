@@ -6,29 +6,14 @@
  * @link https://github.com/raoptimus/data-response.go
  */
 
-package dataresponse
-
-import (
-	"io"
-)
-
-// FormattedResponse represents a formatted response ready to be written.
-type FormattedResponse struct {
-	// ContentType for Content-Type header
-	ContentType string
-
-	// Stream formatted content
-	Stream io.Reader
-
-	// StreamSize is the size of stream data (-1 if unknown)
-	StreamSize int64
-}
+package response
 
 // Formatter defines the interface for response formatting strategies.
+//
 //go:generate mockery
 type Formatter interface {
 	// Format converts DataResponse to FormattedResponse.
-	Format(resp DataResponse) (FormattedResponse, error)
+	Format(resp *DataResponse) (FormattedResponse, error)
 
 	// ContentType returns the default Content-Type for this formatter.
 	ContentType() string

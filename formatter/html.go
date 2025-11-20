@@ -12,13 +12,13 @@ import (
 	"bytes"
 	"html/template"
 
-	dr "github.com/raoptimus/data-response.go/v2"
 	"github.com/raoptimus/data-response.go/v2/internal/conv"
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
 // HTML is an HTML response formatter.
 type HTML struct {
-	dr.BaseFormatter
+	response.BaseFormatter
 	template *template.Template
 }
 
@@ -34,9 +34,9 @@ func (f *HTML) WithTemplate(tmpl *template.Template) *HTML {
 }
 
 // Format writes HTML response.
-func (f *HTML) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
+func (f *HTML) Format(resp *response.DataResponse) (response.FormattedResponse, error) {
 	if resp.IsBinary() {
-		return dr.FormattedResponse{}, dr.NewError(500, "cannot format binary as HTML")
+		return response.FormattedResponse{}, response.NewError(errCode500, "cannot format binary as HTML")
 	}
 
 	var buf bytes.Buffer
@@ -44,23 +44,22 @@ func (f *HTML) Format(resp dr.DataResponse) (dr.FormattedResponse, error) {
 	if f.template != nil {
 		// Pass resp.Data() to template
 		if err := f.template.Execute(&buf, resp.Data()); err != nil {
-			return dr.FormattedResponse{}, dr.WrapError(500, err, "failed to execute template")
+			return response.FormattedResponse{}, response.WrapError(errCode500, err, "failed to execute template")
 		}
 	} else {
 		// Default template
 		if err := f.defaultTemplate(&buf, resp); err != nil {
-			return dr.FormattedResponse{}, err
+			return response.FormattedResponse{}, err
 		}
 	}
 
-	return dr.FormattedResponse{
-		ContentType: f.ContentType(),
-		Stream: bytes.NewReader(buf.Bytes()),
+	return response.FormattedResponse{
+		Stream:     bytes.NewReader(buf.Bytes()),
 		StreamSize: int64(buf.Len()),
 	}, nil
 }
 
-func (f *HTML) defaultTemplate(buf *bytes.Buffer, resp dr.DataResponse) error {
+func (f *HTML) defaultTemplate(buf *bytes.Buffer, resp *response.DataResponse) error {
 	dataBytes, err := conv.DataToString(resp.Data())
 	if err != nil {
 		return err
@@ -73,6 +72,5 @@ func (f *HTML) defaultTemplate(buf *bytes.Buffer, resp dr.DataResponse) error {
 
 // ContentType returns text/html.
 func (f *HTML) ContentType() string {
-	return dr.ContentTypeHTML
+	return response.ContentTypeHTML
 }
-
