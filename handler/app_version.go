@@ -2,8 +2,10 @@ package handler
 
 import (
 	"fmt"
-	"io"
 	"net/http"
+
+	dr "github.com/raoptimus/data-response.go/v2"
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
 type VersionData struct {
@@ -24,18 +26,14 @@ func (d *VersionData) String() string {
 	)
 }
 
-func Version(data *VersionData) http.Handler {
-	return VersionFunc(data)
+//nolint:ireturn,nolintlint // its ok
+func AppVersion(data *VersionData) dr.Handler {
+	return AppVersionFunc(data)
 }
 
-func VersionFunc(data *VersionData) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.WriteHeader(http.StatusOK)
-
-		if _, err := io.WriteString(w, data.String()); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
+func AppVersionFunc(data *VersionData) dr.HandlerFunc {
+	return func(r *http.Request, f *dr.Factory) *response.DataResponse {
+		return f.Success(r.Context(), data.String()).
+			WithHeader(response.HeaderXContentTypeOptions, response.ContentTypeOptionsNoSniff)
 	}
 }

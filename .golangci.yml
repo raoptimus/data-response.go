@@ -1,0 +1,145 @@
+version: "2"
+run:
+  issues-exit-code: 1
+  tests: false
+  allow-parallel-runners: true
+linters:
+  enable:
+    - bodyclose
+    - copyloopvar
+    - durationcheck
+    - err113
+    - errchkjson
+    - errname
+    - errorlint
+    - forcetypeassert
+    - goconst
+    - gocritic
+    - gosec
+    - importas
+    - ireturn
+    - makezero
+    - misspell
+    - mnd
+    - nakedret
+    - nestif
+    - nilerr
+    - nolintlint
+    - prealloc
+    - predeclared
+    - promlinter
+    - revive
+    - staticcheck
+    - unconvert
+    - unparam
+    - whitespace
+  disable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - containedctx
+    - contextcheck
+    - cyclop
+    - decorder
+    - depguard
+    - dogsled
+    - exhaustive
+    - exhaustruct
+    - forbidigo
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - gocyclo
+    - godot
+    - godox
+    - goheader
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - grouper
+    - interfacebloat
+    - lll
+    - maintidx
+    - nilnil
+    - nlreturn
+    - noctx
+    - nonamedreturns
+    - nosprintfhostport
+    - paralleltest
+    - reassign
+    - rowserrcheck
+    - sqlclosecheck
+    - tagliatelle
+    - testpackage
+    - thelper
+    - tparallel
+    - usestdlibvars
+    - varnamelen
+    - wastedassign
+    - wrapcheck
+    - wsl
+  settings:
+    dupl:
+      threshold: 100
+    errcheck:
+      exclude-functions:
+        - io/ioutil.ReadFile
+        - io.Copy(*bytes.Buffer)
+        - io.Copy(os.Stdout)
+        - (io.ReadCloser).Close
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    gocritic:
+      disabled-checks:
+        - importShadow
+        - emptyStringTest
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+    revive:
+      rules:
+        - name: package-comments
+          severity: warning
+          disabled: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - govet
+        text: declaration of "err" shadows declaration
+      - linters:
+          - err113
+        text: do not define dynamic errors, use wrapped static errors instead
+    paths:
+      - \.pb\.go$
+      - \.pb\.gw\.go$
+      - doc
+      - docker
+      - http-client
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - \.pb\.go$
+      - \.pb\.gw\.go$
+      - doc
+      - docker
+      - http-client
+      - third_party$
+      - builtin$
+      - examples$

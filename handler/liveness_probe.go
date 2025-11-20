@@ -6,28 +6,30 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	dr "github.com/raoptimus/data-response.go/v2"
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
-type DeadStackedErrors struct {
+type DeadStackedError struct {
 	errors []error
 }
 
-func NewDeadStackedErrors() *DeadStackedErrors {
-	return &DeadStackedErrors{errors: make([]error, 0)}
+func NewDeadStackedErrors() *DeadStackedError {
+	return &DeadStackedError{errors: make([]error, 0)}
 }
 
-func (d *DeadStackedErrors) Add(err error) {
+func (d *DeadStackedError) Add(err error) {
 	if err == nil {
 		return
 	}
 	d.errors = append(d.errors, err)
 }
 
-func (d *DeadStackedErrors) HasErrors() bool {
+func (d *DeadStackedError) HasErrors() bool {
 	return len(d.errors) > 0
 }
 
-func (d *DeadStackedErrors) Error() string {
+func (d *DeadStackedError) Error() string {
 	if len(d.errors) == 0 {
 		return ""
 	}
@@ -80,14 +82,12 @@ func (l *LivenessServiceRegistry) Alive(ctx context.Context) error {
 	return nil
 }
 
-func Liveness(serv LivenessService) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-
-		if err := serv.Alive(req.Context()); err != nil {
-			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+func LivenessProbe(serv LivenessService) dr.HandlerFunc {
+	return func(r *http.Request, f *dr.Factory) *response.DataResponse {
+		if err := serv.Alive(r.Context()); err != nil {
+			return f.ServiceUnavailable(r.Context(), err.Error())
 		} else {
-			w.WriteHeader(http.StatusOK)
+			return f.Success(r.Context(), nil)
 		}
-	})
+	}
 }

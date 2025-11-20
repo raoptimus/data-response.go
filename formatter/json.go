@@ -1,78 +1,71 @@
+/**
+ * This file is part of the raoptimus/data-response.go library
+ *
+ * @copyright Copyright (c) Evgeniy Urvantsev
+ * @license https://github.com/raoptimus/data-response.go/blob/master/LICENSE.md
+ * @link https://github.com/raoptimus/data-response.go
+ */
+
 package formatter
 
 import (
 	"bytes"
-	"html"
-	"net/http"
 
 	json "github.com/json-iterator/go"
-	"github.com/pkg/errors"
+	"github.com/raoptimus/data-response.go/v2/response"
 )
 
-type Json struct {
-	encoder json.API
-	pretty  bool
+// JSON is a JSON response formatter.
+type JSON struct {
+	response.BaseFormatter
+	Indent bool
 }
 
-func NewJson() *Json {
-	return &Json{
-		encoder: json.ConfigCompatibleWithStandardLibrary,
-		pretty:  false,
-	}
-}
-func NewJsonPretty() *Json {
-	return NewJson().Pretty()
+// NewJSON creates a new JSON formatter.
+func NewJSON() *JSON {
+	return &JSON{Indent: false}
 }
 
-type BinaryData struct {
-	data        []byte
-	contentType string
-	fileName    string
+// NewJSONIndent creates a new JSON formatter with pretty-printing.
+func NewJSONIndent() *JSON {
+	return &JSON{Indent: true}
 }
 
-func NewBinaryData(data []byte, fileName, mimeType string) BinaryData {
-	if mimeType == "" {
-		mimeType = "application/octet-stream"
+// Format converts DataResponse to formatted JSON.
+func (f *JSON) Format(resp *response.DataResponse) (response.FormattedResponse, error) {
+	if resp.IsBinary() {
+		return response.FormattedResponse{}, response.NewError(errCode500, "cannot format binary as JSON")
 	}
 
-	return BinaryData{
-		data:        data,
-		fileName:    fileName,
-		contentType: mimeType,
+	data := resp.Data()
+
+	if data == nil {
+		body := []byte("null")
+
+		return response.FormattedResponse{
+			Stream:     bytes.NewReader(body),
+			StreamSize: int64(len(body)),
+		}, nil
 	}
+
+	// Serialize to buffer
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	if f.Indent {
+		encoder.SetIndent("", "  ")
+	}
+
+	if err := encoder.Encode(data); err != nil {
+		return response.FormattedResponse{}, response.WrapError(errCode500, err, "failed to encode JSON")
+	}
+
+	return response.FormattedResponse{
+		Stream:     bytes.NewReader(buf.Bytes()),
+		StreamSize: int64(buf.Len()),
+	}, nil
 }
 
-func (j *Json) Marshal(header http.Header, data any) ([]byte, error) {
-	header.Set("X-Content-Type-Options", "nosniff")
-
-	if bt, ok := data.(BinaryData); ok {
-		header.Set("Content-Type", bt.contentType)
-		if len(bt.fileName) > 0 {
-			header.Set(
-				"Content-Disposition",
-				`attachment; filename="`+html.EscapeString(bt.fileName)+`"`,
-			)
-		}
-
-		return bt.data, nil
-	}
-
-	var buffer bytes.Buffer
-	enc := j.encoder.NewEncoder(&buffer)
-	if j.pretty {
-		enc.SetIndent("", "    ")
-	}
-
-	if err := enc.Encode(data); err != nil {
-		return nil, errors.Wrapf(err, "encoding data '%T' to json", data)
-	}
-
-	header.Set("Content-Type", "application/json")
-
-	return buffer.Bytes(), nil
-}
-
-func (j *Json) Pretty() *Json {
-	j.pretty = true
-	return j
+// ContentType returns application/json.
+func (f *JSON) ContentType() string {
+	return response.ContentTypeJSON
 }

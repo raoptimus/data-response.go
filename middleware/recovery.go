@@ -9,39 +9,26 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
-	"time"
 
 	dr "github.com/raoptimus/data-response.go/v2"
 	"github.com/raoptimus/data-response.go/v2/response"
 )
 
-type MetricsData struct {
-	StatusCode int
-	Host       string
-	Method     string
-	Route      string
-	Elapsed    time.Duration
-}
-
-//go:generate mockery
-type MetricsService interface {
-	Responded(data MetricsData)
-}
-
-func Measurement(serv MetricsService) dr.Middleware {
+func Recovery() dr.Middleware {
 	return func(next dr.Handler) dr.Handler {
 		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) *response.DataResponse {
-			start := response.RequestStartTime(r.Context())
-			resp := next.Handle(r, f)
+			var resp *response.DataResponse
+			defer func() {
+				if err := recover(); err != nil {
+					ctx := r.Context()
+					panicErr := response.NewError(http.StatusInternalServerError, fmt.Sprintf("panic: %v", err))
+					resp = f.InternalError(ctx, panicErr)
+				}
+			}()
 
-			serv.Responded(MetricsData{
-				StatusCode: resp.StatusCode(),
-				Host:       r.Host,
-				Method:     r.Method,
-				Route:      r.Pattern,
-				Elapsed:    time.Since(start),
-			})
+			resp = next.Handle(r, f)
 
 			return resp
 		})

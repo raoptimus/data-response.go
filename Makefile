@@ -7,6 +7,7 @@ TEST_PATTERN ?= .
 TEST_OPTIONS ?=
 BUILD_DIR=.build
 REPORT_DIR=.report
+BENCH_PATTERN ?= .
 
 help: ## Show help message
 	@cat $(MAKEFILE_LIST) | grep -e "^[a-zA-Z_\-]*: *.*## *" | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
@@ -34,6 +35,29 @@ test: ## Run unit tests
 			$(call test_reports,); \
 			exit $$?
 
+bench:
+	@go test -bench=$(BENCH_PATTERN) \
+ 		-run=^$ \
+		-benchmem \
+		-benchtime=1s \
+		-count=2 \
+		-cpu=1,2,4
+
+bench-cpu:
+	@go test -bench=$(BENCH_PATTERN) -cpuprofile=.report/cpu.prof
+	@go tool pprof -http=:8080 .report/cpu.prof
+
+bench-mem:
+	@go test -bench=$(BENCH_PATTERN) -memprofile=.report/mem.prof
+	@go tool pprof -http=:8080 .report/mem.prof
+
+bench_stat:
+	@go install golang.org/x/perf/cmd/benchstat@latest
+	@go test -bench=. -benchmem -count=10 > .report/old.txt
+	@go test -bench=. -benchmem -count=10 > .report/new.txt
+	@benchstat old.txt new.txt
+
 lint: ## Run linter
 	@[ -d ${REPORT_DIR} ] || mkdir -p ${REPORT_DIR}
-	golangci-lint run --timeout 5m --out-format code-climate | tee ${REPORT_DIR}/qa.json | jq -r '.[] | "\(.location.path):\(.location.lines.begin) \(.description)"'
+	@golangci-lint run -j 10 --output.code-climate.path ${REPORT_DIR}/qa.json --issues-exit-code 0 || true ; \
+ 		cat ${REPORT_DIR}/qa.json | jq -r '.[] | "\(.location.path):\(.location.lines.begin) \(.description)"'
