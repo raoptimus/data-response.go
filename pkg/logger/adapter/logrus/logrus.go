@@ -3,7 +3,6 @@ package logrus
 import (
 	"context"
 
-	"github.com/raoptimus/data-response.go/pkg/logger"
 	"github.com/sirupsen/logrus"
 )
 
@@ -46,5 +45,3 @@ func (a *Logrus) argsToFields(args []any) logrus.Fields {
 	}
 	return fields
 }
-
-var _ logger.Logger = (*Logrus)(nil)

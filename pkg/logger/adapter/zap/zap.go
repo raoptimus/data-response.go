@@ -3,7 +3,6 @@ package zap
 import (
 	"context"
 
-	"github.com/raoptimus/data-response.go/pkg/logger"
 	"go.uber.org/zap"
 )
 
@@ -45,5 +44,3 @@ func (a *Zap) Warn(_ context.Context, msg string, args ...any) {
 func (a *Zap) Error(_ context.Context, msg string, args ...any) {
 	a.logger.Errorw(msg, args...)
 }
-
-var _ logger.Logger = (*Zap)(nil)
