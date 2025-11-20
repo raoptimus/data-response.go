@@ -18,7 +18,6 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/raoptimus/data-response.go/pkg/logger"
 	"github.com/raoptimus/data-response.go/v2/response"
 )
 
@@ -88,7 +87,7 @@ func WithValidationErrorBuilder(builder ValidationErrorBuilder) Option {
 // New creates a new Factory with options.
 func New(opts ...Option) *Factory {
 	f := &Factory{
-		logger:            logger.NoOpLogger{},
+		logger:            NoOpLogger{},
 		verbosity:         false,
 		debugMode:         false,
 		errorBuilder:      defaultErrorBuilder,
