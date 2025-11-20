@@ -21,7 +21,7 @@ func WrapMiddleware(stdM func(http.Handler) http.Handler) Middleware {
 		return HandlerFunc(func(r *http.Request, f *Factory) *response.DataResponse {
 			var captured bool
 			capturedWriter := &capturedResponse{
-				capturedResp: f.createDataResponse(0, nil).
+				capturedResp: f.CreateDataResponse(0, nil).
 					WithFormatter(f.formatter),
 			}
 

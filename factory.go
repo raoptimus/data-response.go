@@ -116,12 +116,12 @@ func (f *Factory) Success(ctx context.Context, data any) *response.DataResponse 
 		f.logger.Debug(ctx, "success response")
 	}
 
-	return f.createDataResponse(http.StatusOK, data)
+	return f.CreateDataResponse(http.StatusOK, data)
 }
 
 // Created creates a 201 Created response.
 func (f *Factory) Created(ctx context.Context, data any, location string) *response.DataResponse {
-	resp := f.createDataResponse(http.StatusCreated, data)
+	resp := f.CreateDataResponse(http.StatusCreated, data)
 
 	if location != "" {
 		resp = resp.WithHeader("Location", location)
@@ -140,7 +140,7 @@ func (f *Factory) Accepted(ctx context.Context, data any) *response.DataResponse
 		f.logger.Debug(ctx, "accepted response")
 	}
 
-	return f.createDataResponse(http.StatusAccepted, data)
+	return f.CreateDataResponse(http.StatusAccepted, data)
 }
 
 // NoContent creates a 204 No Content response.
@@ -149,7 +149,17 @@ func (f *Factory) NoContent(ctx context.Context) *response.DataResponse {
 		f.logger.Debug(ctx, "no content response")
 	}
 
-	return f.createDataResponse(http.StatusNoContent, nil)
+	return f.CreateDataResponse(http.StatusNoContent, nil)
+}
+
+// Found creates a 302 Found response with redirect to the location.
+func (f *Factory) Found(ctx context.Context, location string) *response.DataResponse {
+	if f.debugMode {
+		f.logger.Debug(ctx, "found response")
+	}
+
+	return f.CreateDataResponse(http.StatusFound, nil).
+		WithHeader(response.HeaderLocation, location)
 }
 
 // Error creates an error response with custom data builder.
@@ -164,7 +174,7 @@ func (f *Factory) Error(ctx context.Context, status int, message string) *respon
 
 	data := f.errorBuilder(ctx, status, message, nil)
 
-	return f.createDataResponse(http.StatusInternalServerError, data)
+	return f.CreateDataResponse(http.StatusInternalServerError, data)
 }
 
 // InternalError creates a 500 Internal Server Error response.
@@ -191,7 +201,7 @@ func (f *Factory) InternalError(ctx context.Context, err error) *response.DataRe
 
 	data := f.errorBuilder(ctx, http.StatusInternalServerError, message, details)
 
-	return f.createDataResponse(http.StatusInternalServerError, data)
+	return f.CreateDataResponse(http.StatusInternalServerError, data)
 }
 
 // BadRequest creates a 400 Bad Request response.
@@ -236,7 +246,7 @@ func (f *Factory) ValidationError(ctx context.Context, message string, attribute
 
 	data := f.validationBuilder(ctx, message, attributeErrors)
 
-	return f.createDataResponse(http.StatusUnprocessableEntity, data)
+	return f.CreateDataResponse(http.StatusUnprocessableEntity, data)
 }
 
 // Binary creates a binary file response from io.Reader.
@@ -249,7 +259,7 @@ func (f *Factory) Binary(ctx context.Context, reader io.ReadCloser, filename str
 	ext := filepath.Ext(filename)
 	contentType := response.MimeTypeFromExtension(ext).String()
 
-	resp := f.createDataResponse(http.StatusOK, nil).
+	resp := f.CreateDataResponse(http.StatusOK, nil).
 		WithFormatted(response.FormattedResponse{
 			Stream:     reader,
 			StreamSize: size,
@@ -301,7 +311,7 @@ func (f *Factory) Clone(opts ...Option) *Factory {
 	return &clone
 }
 
-func (f *Factory) createDataResponse(statusCode int, data any) *response.DataResponse {
+func (f *Factory) CreateDataResponse(statusCode int, data any) *response.DataResponse {
 	return response.NewDataResponse(statusCode, data).WithFormatter(f.formatter)
 }
 
