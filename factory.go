@@ -162,6 +162,16 @@ func (f *Factory) Found(ctx context.Context, location string) *response.DataResp
 		WithHeader(response.HeaderLocation, location)
 }
 
+// NotModified creates a 304 Not modified response with eTag.
+func (f *Factory) NotModified(ctx context.Context, eTag string) *response.DataResponse  {
+	if f.debugMode {
+		f.logger.Debug(ctx, "not modified response")
+	}
+
+	return f.CreateDataResponse(http.StatusNotModified, nil).
+		WithHeader(response.HeaderETag, eTag)
+}
+
 // Error creates an error response with custom data builder.
 func (f *Factory) Error(ctx context.Context, status int, message string) *response.DataResponse {
 	if message == "" {
@@ -182,24 +192,20 @@ func (f *Factory) InternalError(ctx context.Context, err error) *response.DataRe
 	f.logger.Error(ctx, "internal server error", "error", err.Error())
 
 	message := "Internal server error"
-	var details any
+	var details InternalError
 
 	if f.verbosity {
-		errData := map[string]string{
-			"error": err.Error(),
-		}
+		details.Error = err.Error()
 
 		var e *response.Error
 		if errors.As(err, &e) {
 			if st := e.StackTrace(); st != "" {
-				errData["stack_trace"] = st
+				details.StackTrace = st
 			}
 		}
-
-		details = errData
 	}
 
-	data := f.errorBuilder(ctx, http.StatusInternalServerError, message, details)
+	data := f.errorBuilder(ctx, http.StatusInternalServerError, message, &details)
 
 	return f.CreateDataResponse(http.StatusInternalServerError, data)
 }
@@ -214,7 +220,7 @@ func (f *Factory) Unauthorized(ctx context.Context, message string) *response.Da
 	return f.Error(ctx, http.StatusUnauthorized, message)
 }
 
-// ServiceUnavailable creates a 503 Service Unavailable response
+// ServiceUnavailable creates a 503 Service Unavailable response.
 func (f *Factory) ServiceUnavailable(ctx context.Context, message string) *response.DataResponse {
 	return f.Error(ctx, http.StatusServiceUnavailable, message)
 }
@@ -235,7 +241,11 @@ func (f *Factory) Conflict(ctx context.Context, message string) *response.DataRe
 }
 
 // ValidationError creates a 422 Unprocessable Entity response.
-func (f *Factory) ValidationError(ctx context.Context, message string, attributeErrors map[string][]string) *response.DataResponse {
+func (f *Factory) ValidationError(
+	ctx context.Context,
+	message string,
+	attributeErrors map[string][]string,
+) *response.DataResponse {
 	if f.debugMode {
 		f.logger.Info(ctx, "validation error", "errors_count", len(attributeErrors))
 	}
@@ -249,22 +259,27 @@ func (f *Factory) ValidationError(ctx context.Context, message string, attribute
 	return f.CreateDataResponse(http.StatusUnprocessableEntity, data)
 }
 
-// Binary creates a binary file response from io.Reader.
-func (f *Factory) Binary(ctx context.Context, reader io.ReadCloser, filename string, size int64) *response.DataResponse {
-	if f.debugMode {
-		f.logger.Debug(ctx, "binary response", "filename", filename, "size", size)
-	}
-
+func (f *Factory) BinaryWithFilename(ctx context.Context, reader io.ReadCloser, filename string, size int64) *response.DataResponse  {
 	// Detect Content-Type from filename
 	ext := filepath.Ext(filename)
 	contentType := response.MimeTypeFromExtension(ext).String()
+
+	return f.Binary(ctx, reader, contentType, size).
+		WithContentDisposition(path.Base(filename))
+}
+
+// Binary creates a binary file response from io.Reader.
+func (f *Factory) Binary(ctx context.Context, reader io.ReadCloser, contentType string, size int64) *response.DataResponse {
+	if f.debugMode {
+		f.logger.Debug(ctx, "binary response", "contentType", contentType, "size", size)
+	}
 
 	resp := f.CreateDataResponse(http.StatusOK, nil).
 		WithFormatted(response.FormattedResponse{
 			Stream:     reader,
 			StreamSize: size,
 		}).
-		WithFile(reader, path.Base(filename)).
+		WithFile(reader).
 		WithContentType(contentType)
 
 	return resp
@@ -274,24 +289,25 @@ func (f *Factory) Binary(ctx context.Context, reader io.ReadCloser, filename str
 func (f *Factory) File(ctx context.Context, filename string) *response.DataResponse {
 	file, err := os.Open(filename)
 	if err != nil {
-		return f.InternalError(ctx, response.WrapError(http.StatusInternalServerError, err, "failed to open file"))
+		return f.InternalError(ctx,
+			response.WrapError(http.StatusInternalServerError, err, "failed to open file"))
 	}
 
 	stat, err := file.Stat()
 	if err != nil {
 		file.Close()
 
-		return f.InternalError(ctx, response.WrapError(http.StatusInternalServerError, err, "failed to stat file"))
+		return f.InternalError(ctx,
+			response.WrapError(http.StatusInternalServerError, err, "failed to stat file"))
 	}
 
 	if f.debugMode {
 		f.logger.Debug(ctx, "file response", "path", filename, "size", stat.Size())
 	}
 
-	resp := f.Binary(ctx, file, stat.Name(), stat.Size()).
-		WithFile(file, path.Base(filename))
-
-	return resp
+	return f.Binary(ctx, file, stat.Name(), stat.Size()).
+		WithFile(file).
+		WithContentDisposition(path.Base(filename))
 }
 
 // Formatter returns the current default formatter for this factory.
