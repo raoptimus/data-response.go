@@ -16,6 +16,7 @@ const (
 	HeaderConnection       = "Connection"
 	HeaderDate             = "Date"
 	HeaderTransferEncoding = "Transfer-Encoding"
+	HeaderExpires          = "Expires"
 
 	// Request Headers
 

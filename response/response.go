@@ -238,6 +238,10 @@ func (r *DataResponse) WithSecurityHeaders() *DataResponse {
 		WithHeader(HeaderReferrerPolicy, ReferrerPolicyStrictOriginWhenCrossOrigin)
 }
 
+func (r *DataResponse) WithContentDisposition(filename string) *DataResponse  {
+	return r.WithHeader(HeaderContentDisposition, `attachment; filename="`+filename+`"`)
+}
+
 func (r *DataResponse) WithFormatter(formatter Formatter) *DataResponse {
 	r.formatter = formatter
 
@@ -252,10 +256,9 @@ func (r *DataResponse) Close() error {
 	return nil
 }
 
-func (r *DataResponse) WithFile(closer io.Closer, filename string) *DataResponse {
+func (r *DataResponse) WithFile(closer io.Closer) *DataResponse {
 	r.isBinary = true
 	r.closer = closer
-	r.filename = filename
 
 	return r
 }
