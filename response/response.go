@@ -12,6 +12,8 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/raoptimus/data-response.go/v2/internal/conv"
@@ -238,6 +240,18 @@ func (r *DataResponse) WithSecurityHeaders() *DataResponse {
 		WithHeader(HeaderReferrerPolicy, ReferrerPolicyStrictOriginWhenCrossOrigin)
 }
 
+func (r *DataResponse) WithContentDisposition(filename string) *DataResponse {
+	// Remove path separators and sanitize
+	sanitized := strings.ReplaceAll(filename, "\\", "/")
+	sanitized = filepath.Base(sanitized)
+	// Escape dangerous characters to prevent header injection
+	sanitized = strings.ReplaceAll(sanitized, `"`, `\"`)
+	sanitized = strings.ReplaceAll(sanitized, "\r", "")
+	sanitized = strings.ReplaceAll(sanitized, "\n", "")
+
+	return r.WithHeader(HeaderContentDisposition, `attachment; filename="`+sanitized+`"`)
+}
+
 func (r *DataResponse) WithFormatter(formatter Formatter) *DataResponse {
 	r.formatter = formatter
 
@@ -252,10 +266,9 @@ func (r *DataResponse) Close() error {
 	return nil
 }
 
-func (r *DataResponse) WithFile(closer io.Closer, filename string) *DataResponse {
+func (r *DataResponse) WithFile(closer io.Closer) *DataResponse {
 	r.isBinary = true
 	r.closer = closer
-	r.filename = filename
 
 	return r
 }
