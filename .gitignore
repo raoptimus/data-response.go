@@ -2,3 +2,6 @@
 /*.iml
 /.vscode
 .report
+coverage.out
+*.md
+!README.md

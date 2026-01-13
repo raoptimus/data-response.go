@@ -163,7 +163,7 @@ func (f *Factory) Found(ctx context.Context, location string) *response.DataResp
 }
 
 // NotModified creates a 304 Not modified response with eTag.
-func (f *Factory) NotModified(ctx context.Context, eTag string) *response.DataResponse  {
+func (f *Factory) NotModified(ctx context.Context, eTag string) *response.DataResponse {
 	if f.debugMode {
 		f.logger.Debug(ctx, "not modified response")
 	}
@@ -184,7 +184,7 @@ func (f *Factory) Error(ctx context.Context, status int, message string) *respon
 
 	data := f.errorBuilder(ctx, status, message, nil)
 
-	return f.CreateDataResponse(http.StatusInternalServerError, data)
+	return f.CreateDataResponse(status, data)
 }
 
 // InternalError creates a 500 Internal Server Error response.
@@ -192,10 +192,12 @@ func (f *Factory) InternalError(ctx context.Context, err error) *response.DataRe
 	f.logger.Error(ctx, "internal server error", "error", err.Error())
 
 	message := "Internal server error"
-	var details InternalError
+	var details *InternalError
 
 	if f.verbosity {
-		details.Error = err.Error()
+		details = &InternalError{
+			Error: err.Error(),
+		}
 
 		var e *response.Error
 		if errors.As(err, &e) {
@@ -205,7 +207,7 @@ func (f *Factory) InternalError(ctx context.Context, err error) *response.DataRe
 		}
 	}
 
-	data := f.errorBuilder(ctx, http.StatusInternalServerError, message, &details)
+	data := f.errorBuilder(ctx, http.StatusInternalServerError, message, details)
 
 	return f.CreateDataResponse(http.StatusInternalServerError, data)
 }
@@ -259,7 +261,7 @@ func (f *Factory) ValidationError(
 	return f.CreateDataResponse(http.StatusUnprocessableEntity, data)
 }
 
-func (f *Factory) BinaryWithFilename(ctx context.Context, reader io.ReadCloser, filename string, size int64) *response.DataResponse  {
+func (f *Factory) BinaryWithFilename(ctx context.Context, reader io.ReadCloser, filename string, size int64) *response.DataResponse {
 	// Detect Content-Type from filename
 	ext := filepath.Ext(filename)
 	contentType := response.MimeTypeFromExtension(ext).String()
@@ -305,9 +307,7 @@ func (f *Factory) File(ctx context.Context, filename string) *response.DataRespo
 		f.logger.Debug(ctx, "file response", "path", filename, "size", stat.Size())
 	}
 
-	return f.Binary(ctx, file, stat.Name(), stat.Size()).
-		WithFile(file).
-		WithContentDisposition(path.Base(filename))
+	return f.BinaryWithFilename(ctx, file, filename, stat.Size())
 }
 
 // Formatter returns the current default formatter for this factory.

@@ -30,12 +30,12 @@ type (
 		Errors  TemplateErrors    `json:"errors,omitempty"`
 	}
 	InternalError struct {
-		Error string `json:"error"`
+		Error      string `json:"error"`
 		StackTrace string `json:"stackTrace,omitempty"`
 	}
 )
 
-func (ie *InternalError) String() string  {
+func (ie *InternalError) String() string {
 	var sb strings.Builder
 	sb.WriteString("Error:\n")
 	sb.WriteString(ie.Error)
