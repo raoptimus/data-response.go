@@ -28,8 +28,12 @@ func WrapMiddleware(stdM func(http.Handler) http.Handler) Middleware {
 			// Create a dummy handler that captures the response
 			dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				capturedResp := next.Handle(r, f).
-					WithStatusCode(capturedWriter.capturedResp.StatusCode()).
 					WithHeaders(capturedWriter.capturedResp.Header())
+				// Preserve the status code set by the handler when a pass-through
+				// chi middleware did not call WriteHeader itself.
+				if cs := capturedWriter.capturedResp.StatusCode(); cs != 0 {
+					capturedResp = capturedResp.WithStatusCode(cs)
+				}
 				capturedWriter.capturedResp = capturedResp
 				captured = true
 			})
