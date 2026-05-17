@@ -105,3 +105,126 @@ func TestWrapMiddleware_MiddlewareSetsStatus_OverridesHandler(t *testing.T) {
 
 	require.Equal(t, http.StatusAccepted, rec.Code)
 }
+
+// TestWrapMiddleware_PassThrough_NoDuplicateContentType covers a regression
+// where the captured intermediate DataResponse was pre-populated with a
+// formatter (which set its own Content-Type), and the resulting WithHeaders
+// merge produced two identical Content-Type values on every response.
+func TestWrapMiddleware_PassThrough_NoDuplicateContentType(t *testing.T) {
+	factory := New(WithFormatter(formatter.NewJSON()))
+
+	passThroughMW := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r)
+		})
+	}
+
+	handler := HandlerFunc(func(r *http.Request, f *Factory) *response.DataResponse {
+		return f.Success(r.Context(), map[string]string{"ok": "yes"})
+	})
+
+	wrapped := WrapMiddleware(passThroughMW)(handler)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	WrapHandler(wrapped, factory).ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Len(t, rec.Header().Values(response.HeaderContentType), 1,
+		"Content-Type must not be duplicated")
+	require.Len(t, rec.Header().Values(response.HeaderContentLength), 1,
+		"Content-Length must not be duplicated")
+}
+
+// TestWrapMiddleware_HandlerError_NoDuplicateContentType verifies the same
+// invariant for an error response returned by the inner handler — a strict
+// upstream like Gravitee rejects duplicate body-content headers with 502.
+func TestWrapMiddleware_HandlerError_NoDuplicateContentType(t *testing.T) {
+	factory := New(WithFormatter(formatter.NewJSON()))
+
+	passThroughMW := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r)
+		})
+	}
+
+	handler := HandlerFunc(func(r *http.Request, f *Factory) *response.DataResponse {
+		return f.Error(r.Context(), http.StatusBadRequest, "bad")
+	})
+
+	wrapped := WrapMiddleware(passThroughMW)(handler)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	WrapHandler(wrapped, factory).ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Len(t, rec.Header().Values(response.HeaderContentType), 1,
+		"Content-Type must not be duplicated for error responses")
+	require.Len(t, rec.Header().Values(response.HeaderContentLength), 1,
+		"Content-Length must not be duplicated for error responses")
+}
+
+// TestWrapMiddleware_ShortCircuitViaWrapHandlerFunc_NoDuplicateContentLength
+// covers the bug that surfaced with strict upstreams (Gravitee, nginx with
+// strict mode) responding 502 to clients. When a chi middleware short-circuits
+// using dr.WrapHandlerFunc, the inner dr.Write writes its own Content-Length
+// into the captured writer's header. Previously WithHeaders carried that stale
+// value into the fallback f.Error response, and the outer dr.Write added its
+// own — producing two different Content-Length values in one HTTP response.
+func TestWrapMiddleware_ShortCircuitViaWrapHandlerFunc_NoDuplicateContentLength(t *testing.T) {
+	factory := New(WithFormatter(formatter.NewJSON()))
+
+	shortCircuitMW := func(_ http.Handler) http.Handler {
+		errHandler := WrapHandlerFunc(func(r *http.Request, f *Factory) *response.DataResponse {
+			return f.Error(r.Context(), http.StatusForbidden, "denied")
+		}, factory)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			errHandler.ServeHTTP(w, r)
+		})
+	}
+
+	handler := HandlerFunc(func(r *http.Request, f *Factory) *response.DataResponse {
+		return f.Success(r.Context(), map[string]string{"unreachable": "true"})
+	})
+
+	wrapped := WrapMiddleware(shortCircuitMW)(handler)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	WrapHandler(wrapped, factory).ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.Len(t, rec.Header().Values(response.HeaderContentLength), 1,
+		"Content-Length must not be duplicated when chi middleware short-circuits via WrapHandlerFunc")
+	require.Len(t, rec.Header().Values(response.HeaderContentType), 1,
+		"Content-Type must not be duplicated when chi middleware short-circuits via WrapHandlerFunc")
+}
+
+// TestWrapMiddleware_CustomHeadersFromMiddleware_StillPropagate ensures the
+// header-filtering fix does not strip legitimate headers the chi middleware
+// wants to add (the original purpose of WithHeaders).
+func TestWrapMiddleware_CustomHeadersFromMiddleware_StillPropagate(t *testing.T) {
+	factory := New(WithFormatter(formatter.NewJSON()))
+
+	customMW := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Request-ID", "req-123")
+			w.Header().Set("X-Trace-Id", "trace-abc")
+			next.ServeHTTP(w, r)
+		})
+	}
+
+	handler := HandlerFunc(func(r *http.Request, f *Factory) *response.DataResponse {
+		return f.Success(r.Context(), map[string]string{"ok": "yes"})
+	})
+
+	wrapped := WrapMiddleware(customMW)(handler)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	WrapHandler(wrapped, factory).ServeHTTP(rec, req)
+
+	assert.Equal(t, "req-123", rec.Header().Get("X-Request-Id"))
+	assert.Equal(t, "trace-abc", rec.Header().Get("X-Trace-Id"))
+}
