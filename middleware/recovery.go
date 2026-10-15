@@ -16,6 +16,9 @@ import (
 	"github.com/raoptimus/data-response.go/v2/response"
 )
 
+// Recovery turns a panic of the inner handlers into a 500 response.
+// The function of Factory.Stream runs after the chain has returned and is not covered:
+// a panic of it before the first write needs a recovery around WrapHandler.
 func Recovery() dr.Middleware {
 	return func(next dr.Handler) dr.Handler {
 		return dr.HandlerFunc(func(r *http.Request, f *dr.Factory) *response.DataResponse {

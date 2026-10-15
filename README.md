@@ -240,6 +240,76 @@ func streamData(r *http.Request, f *dr.Factory) dr.DataResponse {
 }
 ```
 
+### Streaming Responses
+
+`Factory.Stream` sends a body that is produced while the handler runs, so a large result is never held in memory.
+The function writes the whole body, envelope and separators included:
+
+```go
+func listUsers(r *http.Request, f *dr.Factory) *response.DataResponse {
+    return f.Stream(r.Context(), response.ContentTypeJSON, func(ctx context.Context, w io.Writer) error {
+        if _, err := io.WriteString(w, `{"data":[`); err != nil {
+            return err
+        }
+
+        enc := json.NewEncoder(w)
+        first := true
+        for user, err := range users(ctx) {
+            if err != nil {
+                return err
+            }
+
+            if !first {
+                if _, err := io.WriteString(w, ","); err != nil {
+                    return err
+                }
+            }
+            first = false
+
+            if err := enc.Encode(user); err != nil {
+                return err
+            }
+        }
+
+        _, err := io.WriteString(w, `]}`)
+
+        return err
+    })
+}
+```
+
+Status and headers go out with the first non-empty write. What the client gets depends on when the function fails:
+
+| Failure | Client gets | Phase |
+|---------|-------------|-------|
+| before the first write | an ordinary error response: `InternalError` or the result of `WithStreamErrorResponder` | `StreamPhaseBeforeWrite` |
+| after the first write | an aborted connection: the handler panics with `http.ErrAbortHandler`, the body is cut instead of looking complete | `StreamPhaseAfterWrite` |
+
+Both cases call the observer, which is the place for logs and metrics:
+
+```go
+factory := dr.New(
+    dr.WithStreamObserver(func(ctx context.Context, phase response.StreamPhase, err error) {
+        // err is a *response.StreamError. A client that went away shows as ctx.Err() != nil
+        // or a non-nil StreamError.WriteErr, whichever comes first.
+    }),
+    dr.WithStreamErrorResponder(func(ctx context.Context, err error) *response.DataResponse {
+        return buildErrorResponse(ctx, err) // your own mapping of errors to responses
+    }),
+)
+```
+
+Details to know:
+
+- The body has no known size: `Compression` skips it, and `net/http` picks `Content-Length` for short bodies and chunked encoding for the rest.
+- The function runs inside the write, after the whole middleware chain has returned the response. That has three consequences:
+  - `middleware.Recovery` does not cover it. A panic before the first write goes to the recovery around `WrapHandler`, for example `chi` `Recoverer`; without one `net/http` closes the connection with no response.
+  - `Measurement` and `Logging` see the status of the response and not the outcome of the stream.
+  - A middleware that cancels the context or ends a span on return (`context.WithTimeout` with `defer cancel()`) has already finished by the time the function starts, so `ctx` of the stream may be cancelled before the first write.
+- After the first write a panic becomes a `StreamError` whose cause is a `*response.StreamPanicError` with the value and the stack.
+- Recovery middleware placed around `WrapHandler` must let `http.ErrAbortHandler` through (chi `Recoverer` does).
+- `w` is not safe for concurrent use and must not be kept after the function returns.
+
 ### Request Context Values
 
 ```go
@@ -258,7 +328,7 @@ duration := time.Since(start)
 | Middleware | Description |
 |------------|-------------|
 | `RequestTimer()` | Captures request start time in context |
-| `Recovery()` | Recovers from panics and returns 500 |
+| `Recovery()` | Recovers from panics and returns 500; does not cover the function of `Factory.Stream` |
 | `Logging(cfg)` | Customizable access log with templates |
 | `LoggingDefault()` | Default Apache-style access log |
 | `Measurement(service, pattern)` | Metrics collection |
@@ -297,6 +367,7 @@ func RateLimitMiddleware(limiter *rate.Limiter) dr.Middleware {
 | `ValidationError(ctx, msg, errors)` | 422 | Validation error |
 | `InternalError(ctx, err)` | 500 | Internal error |
 | `ServiceUnavailable(ctx, msg)` | 503 | Service unavailable |
+| `Stream(ctx, contentType, fn)` | 200 | Body written incrementally by `fn` |
 
 ### Response Methods
 

@@ -9,7 +9,10 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"net/http"
@@ -43,6 +46,9 @@ func main() {
 		dr.WithLogger(adapterslog.New(logger)),
 		dr.WithVerbosity(os.Getenv("APP_ENV") != "production"),
 		dr.WithFormatter(formatter.NewJSONIndent()),
+		dr.WithStreamObserver(func(ctx context.Context, phase response.StreamPhase, err error) {
+			logger.ErrorContext(ctx, "stream failed", "phase", phase.String(), "error", err.Error())
+		}),
 	)
 
 	mux := dr.NewServeMux(factory)
@@ -71,6 +77,10 @@ func main() {
 		}
 
 		return f.Success(r.Context(), users)
+	})
+
+	mux.HandleFunc("GET /api/users/stream", func(r *http.Request, f *dr.Factory) *response.DataResponse {
+		return f.Stream(r.Context(), response.ContentTypeJSON, streamUsers)
 	})
 
 	mux.HandleFunc("GET /api/empty", func(r *http.Request, f *dr.Factory) *response.DataResponse {
@@ -113,4 +123,34 @@ func main() {
 
 	log.Println("Server starting on :8080")
 	http.ListenAndServe(":8080", mux)
+}
+
+// streamUsers writes the envelope and every element itself; the library only commits the status
+// with the first write and aborts the connection if the function fails afterwards.
+func streamUsers(ctx context.Context, w io.Writer) error {
+	if _, err := io.WriteString(w, `{"data":[`); err != nil {
+		return err
+	}
+
+	enc := json.NewEncoder(w)
+	for i := 1; i <= 3; i++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		if i > 1 {
+			if _, err := io.WriteString(w, ","); err != nil {
+				return err
+			}
+		}
+
+		user := User{ID: i, Name: fmt.Sprintf("user-%d", i), Email: fmt.Sprintf("user-%d@example.com", i)}
+		if err := enc.Encode(user); err != nil {
+			return err
+		}
+	}
+
+	_, err := io.WriteString(w, `]}`)
+
+	return err
 }

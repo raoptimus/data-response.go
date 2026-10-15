@@ -29,6 +29,53 @@ type Factory struct {
 	debugMode         bool
 	errorBuilder      ErrorBuilder
 	validationBuilder ValidationErrorBuilder
+	streamObserver    StreamObserver
+	streamResponder   StreamErrorResponder
+}
+
+// StreamObserver is called for every failed stream, before the error response or the abort.
+// err is a *response.StreamError; ctx.Err() and its WriteErr tell a client that went away.
+type StreamObserver func(ctx context.Context, phase response.StreamPhase, err error)
+
+// StreamErrorResponder builds the response for a stream that failed before its first write.
+// err is the error returned by the stream function. A nil result falls back to InternalError.
+type StreamErrorResponder func(ctx context.Context, err error) *response.DataResponse
+
+// WithStreamObserver sets the observer of failed streams.
+// Without it a stream aborted after its first write is logged by the factory logger.
+func WithStreamObserver(observer StreamObserver) Option {
+	return func(f *Factory) {
+		f.streamObserver = observer
+	}
+}
+
+// WithStreamErrorResponder replaces InternalError for a stream that failed before its first write.
+func WithStreamErrorResponder(responder StreamErrorResponder) Option {
+	return func(f *Factory) {
+		f.streamResponder = responder
+	}
+}
+
+// Stream creates a 200 OK response whose body fn writes. An error before the first non-empty write becomes an error
+// response, after it the connection aborts. fn runs after the middleware chain, so middleware.Recovery misses it:
+// a panic before the first write needs a recovery around WrapHandler. An empty contentType keeps the formatter's one.
+func (f *Factory) Stream(
+	ctx context.Context,
+	contentType string,
+	fn func(ctx context.Context, w io.Writer) error,
+) *response.DataResponse {
+	if f.debugMode {
+		f.logger.Debug(ctx, "stream response", "contentType", contentType)
+	}
+
+	resp := f.CreateDataResponse(http.StatusOK, nil).
+		WithStream(func(w io.Writer) error { return fn(ctx, w) })
+
+	if contentType != "" {
+		resp = resp.WithContentType(contentType)
+	}
+
+	return resp
 }
 
 // ErrorBuilder builds error response data structure.

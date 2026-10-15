@@ -9,6 +9,9 @@
 package dataresponse
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/raoptimus/data-response.go/v2/response"
@@ -29,29 +32,31 @@ func (hf HandlerFunc) Handle(r *http.Request, f *Factory) *response.DataResponse
 }
 
 // WrapHandler converts DataResponse Handler to http.Handler.
+//
+// A stream response that fails after its first write ends with panic(http.ErrAbortHandler),
+// so recovery middleware placed around the returned handler must let that value through.
 func WrapHandler(h Handler, f *Factory) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rw := &responseRecorder{ResponseWriter: w}
 		ctx := response.WithRequestStartTime(r.Context())
 		resp := h.Handle(r.WithContext(ctx), f)
 
-		if err := Write(rw, resp); err != nil {
+		err := Write(rw, resp)
+
+		var streamErr *response.StreamError
+		if errors.As(err, &streamErr) {
+			f.handleStreamError(ctx, w, rw, streamErr)
+
+			return
+		}
+
+		if err != nil {
 			if rw.Written() { // already written
 				f.logger.Error(ctx, "failed to write response", "error", err.Error())
 				return
 			}
 
-			errResp := f.InternalError(ctx, err)
-			if err := Write(rw, errResp); err != nil {
-				f.logger.Error(ctx, "failed to write error response", "error", err.Error())
-
-				// last chance
-				if !rw.Written() {
-					w.Header().Set(response.HeaderContentType, response.MimeTypePlainText.String())
-					w.WriteHeader(http.StatusInternalServerError)
-					_, _ = w.Write([]byte("Internal Server Error"))
-				}
-			}
+			f.writeErrorResponse(ctx, w, rw, f.InternalError(ctx, err))
 		}
 	})
 }
@@ -98,4 +103,72 @@ func (rr *responseRecorder) Written() bool {
 
 func (rr *responseRecorder) StatusCode() int {
 	return rr.statusCode
+}
+
+// writeErrorResponse writes errResp, and a plain 500 if even that fails, so the client never gets an empty 200.
+func (f *Factory) writeErrorResponse(
+	ctx context.Context,
+	w http.ResponseWriter,
+	rw *responseRecorder,
+	errResp *response.DataResponse,
+) {
+	err := Write(rw, errResp)
+	if err == nil {
+		return
+	}
+
+	f.logger.Error(ctx, "failed to write error response", "error", err.Error())
+
+	// last chance
+	if !rw.Written() {
+		w.Header().Set(response.HeaderContentType, response.MimeTypePlainText.String())
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("Internal Server Error"))
+	}
+}
+
+func (f *Factory) handleStreamError(
+	ctx context.Context,
+	w http.ResponseWriter,
+	rw *responseRecorder,
+	streamErr *response.StreamError,
+) {
+	f.observeStreamError(ctx, streamErr)
+
+	if streamErr.Phase == response.StreamPhaseAfterWrite {
+		// The client already has the status line: abort the connection instead of finishing
+		// a chunked body that would look complete.
+		panic(http.ErrAbortHandler)
+	}
+
+	var errResp *response.DataResponse
+	if f.streamResponder != nil {
+		errResp = f.streamResponder(ctx, streamErr.Err)
+	}
+
+	if errResp == nil {
+		errResp = f.InternalError(ctx, streamErr.Err)
+	}
+
+	f.writeErrorResponse(ctx, w, rw, errResp)
+}
+
+// observeStreamError calls the observer; its panic is logged and dropped so it cannot cancel the abort.
+func (f *Factory) observeStreamError(ctx context.Context, streamErr *response.StreamError) {
+	if f.streamObserver == nil {
+		// The default responder logs failures before the first write itself.
+		if streamErr.Phase == response.StreamPhaseAfterWrite {
+			f.logger.Error(ctx, "stream aborted", "error", streamErr.Error())
+		}
+
+		return
+	}
+
+	defer func() {
+		if rcv := recover(); rcv != nil {
+			f.logger.Error(ctx, "stream observer panicked", "panic", fmt.Sprint(rcv))
+		}
+	}()
+
+	f.streamObserver(ctx, streamErr.Phase, streamErr)
 }

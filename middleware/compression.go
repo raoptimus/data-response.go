@@ -88,6 +88,10 @@ func Compression(opts CompressionOptions) dr.Middleware {
 
 			// Execute handler
 			resp := next.Handle(r, f)
+			if resp.IsStream() {
+				return resp // unknown size, and reading the body here would run the stream early
+			}
+
 			formattedResp, err := resp.Body()
 			if err != nil {
 				f.Logger().Error(r.Context(), "failed to get formatted response",

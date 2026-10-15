@@ -27,7 +27,12 @@ func ContentNegotiator(formatters map[string]response.Formatter) dr.Middleware {
 				return f.Error(r.Context(), http.StatusNotAcceptable, "Not Acceptable")
 			}
 
-			return next.Handle(r, f).WithFormatter(formatter)
+			resp := next.Handle(r, f)
+			if resp.IsStream() {
+				return resp // the stream function writes the body and Content-Type is set explicitly
+			}
+
+			return resp.WithFormatter(formatter)
 		})
 	}
 }

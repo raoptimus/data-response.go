@@ -18,7 +18,12 @@ import (
 
 // Write writes a DataResponse to http.ResponseWriter.
 // It handles formatting, headers, and body writing.
+// A failed stream body is returned as *response.StreamError.
 func Write(w http.ResponseWriter, resp *response.DataResponse) error {
+	if resp.IsStream() {
+		return writeStream(w, resp)
+	}
+
 	defer resp.Close()
 
 	formattedResp, err := resp.Body()

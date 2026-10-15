@@ -37,6 +37,8 @@ type DataResponse struct {
 	filename string
 
 	closer io.Closer // Close after response is written
+
+	stream StreamFunc // Lazily committed body, see WithStream
 }
 
 func NewDataResponse(statusCode int, data any) *DataResponse {
